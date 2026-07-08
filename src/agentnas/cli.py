@@ -295,6 +295,10 @@ def results_cmd(experiment_dir: Path, export_path: str | None, as_json: bool):
               help="Authoring model (a strong model pays for itself here)")
 @click.option("--max-attempts", type=int, default=4,
               help="Max file emissions before giving up")
+@click.option("--max-turns", type=int, default=25,
+              help="Max agent turns (inspection + emissions) before giving up")
+@click.option("--exec-timeout", type=int, default=120,
+              help="Seconds allowed per inspection code execution")
 def init_task_cmd(
     task: str,
     data_root: str,
@@ -303,6 +307,8 @@ def init_task_cmd(
     out_path: str | None,
     llm_model: str,
     max_attempts: int,
+    max_turns: int,
+    exec_timeout: int,
 ):
     """Author a --benchmark-file for your dataset with an LLM agent.
 
@@ -337,6 +343,7 @@ def init_task_cmd(
     author = TaskAuthor(
         llm_client=llm, task=task, data_root=data_root_abs, data_subdir=subdir,
         out_path=out, description=describe, max_attempts=max_attempts,
+        max_turns=max_turns, exec_timeout_s=exec_timeout,
     )
     result = author.author()
 

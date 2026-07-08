@@ -47,12 +47,14 @@ class LLMClient:
         temperature: float = 0.7,
         seed: int | None = None,
         max_tokens: int = 16384,
+        max_retries: int = 5,
         logger: LLMLogger | None = None,
     ):
         self.model = model
         self.temperature = temperature
         self.seed = seed
         self.max_tokens = max_tokens
+        self.max_retries = max_retries
         self.logger = logger
 
         # Running token totals
@@ -127,10 +129,10 @@ class LLMClient:
         system: str,
         temperature: float,
         max_tokens: int,
-        max_retries: int = 5,
         base_delay: float = 2.0,
     ) -> LLMResponse:
         """Call LLM with exponential backoff retry for transient errors."""
+        max_retries = self.max_retries
         for attempt in range(1, max_retries + 1):
             try:
                 if self.is_claude:
@@ -300,5 +302,6 @@ class LLMClient:
             temperature=config.temperature,
             seed=config.seed,
             max_tokens=config.max_tokens,
+            max_retries=config.max_retries,
             logger=logger,
         )

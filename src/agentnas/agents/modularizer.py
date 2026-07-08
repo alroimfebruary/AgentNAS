@@ -290,6 +290,7 @@ def _validate_modularization(
     input_shape: tuple[int, ...],
     python_bin: str,
     seed: int = 0,
+    timeout_s: int = 120,
 ) -> dict[str, Any]:
     """Validate forward-pass equivalence in a subprocess. Returns the report dict.
 
@@ -324,11 +325,14 @@ def _validate_modularization(
                 ],
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=timeout_s,
                 env=env,
             )
         except subprocess.TimeoutExpired:
-            return {"error": "validation timed out (>120s)", "forward_equivalent": False}
+            return {
+                "error": f"validation timed out (>{timeout_s}s)",
+                "forward_equivalent": False,
+            }
 
         if report_path.exists():
             try:
@@ -388,6 +392,7 @@ class ModularizerAgent:
         max_retries: int = 5,
         python_bin: str = "",
         seed: int = 0,
+        exec_timeout_s: int = 120,
     ):
         self.llm = llm_client
         self.task_name = task_name
@@ -395,6 +400,7 @@ class ModularizerAgent:
         self.max_retries = max_retries
         self.python_bin = python_bin or "python"
         self.seed = seed
+        self.exec_timeout_s = exec_timeout_s
 
     def run(self, original_code: str) -> ModularizationResult:
         """Run the modularization loop. Returns ModularizationResult."""
@@ -454,6 +460,7 @@ class ModularizerAgent:
                 input_shape=self.input_shape,
                 python_bin=self.python_bin,
                 seed=self.seed,
+                timeout_s=self.exec_timeout_s,
             )
             last_report = report
 

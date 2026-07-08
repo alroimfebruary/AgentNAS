@@ -466,6 +466,8 @@ def run_phase3(config: PipelineConfig, resume: bool = True) -> dict[str, Any]:
                 save_dir=save_dir,
                 python_bin=python_bin,
                 max_vram_mb=config.gpu.max_vram_mb,
+                timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+                vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
                 proxy_epoch_fraction=1.0,
             )
             return {
@@ -546,6 +548,8 @@ def run_phase3(config: PipelineConfig, resume: bool = True) -> dict[str, Any]:
                 save_dir=save_dir,
                 python_bin=python_bin,
                 max_vram_mb=config.gpu.max_vram_mb,
+                timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+                vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
             )
             return {
                 "arch_id": ind.arch_id,
@@ -671,6 +675,8 @@ def _evaluate_batch(
                 save_dir=save_dir,
                 python_bin=python_bin,
                 max_vram_mb=config.gpu.max_vram_mb,
+                timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+                vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
                 proxy_epoch_fraction=config.gpu.proxy_epoch_fraction,
             )
             return ind, result

@@ -31,6 +31,10 @@ class ExplorerError(RuntimeError):
 # and every futile turn grows the context (and the bill).
 _MAX_NO_CODE_STREAK = 5
 
+# Execution output shown to the model is truncated to this many characters
+# (single-sourced into the system prompt and the executor).
+_OUTPUT_TRUNCATE_CHARS = 5000
+
 _EXPLORER_SYSTEM_PROMPT = """\
 You are a Data Explorer agent for a neural architecture search pipeline. Your job is \
 to analyze a dataset by writing and executing Python code.
@@ -46,7 +50,7 @@ At each step, write Python code in one or more ```python blocks. ALL blocks in \
 a single turn are concatenated and executed together in one fresh subprocess \
 (notebook-style: imports and variables from an earlier block are visible to \
 later blocks in the same turn, but NOT across turns — each turn starts a new \
-process). You'll receive stdout+stderr (truncated to 5000 chars) as the next \
+process). You'll receive stdout+stderr (truncated to {truncate_chars} chars) as the next \
 user message.
 
 CRITICAL rules:
@@ -92,9 +96,8 @@ def _execute_code(
             output += result.stdout
         if result.stderr:
             output += "\n[STDERR]\n" + result.stderr
-        # Truncate to 5000 chars
-        if len(output) > 5000:
-            output = output[:5000] + "\n... (truncated)"
+        if len(output) > _OUTPUT_TRUNCATE_CHARS:
+            output = output[:_OUTPUT_TRUNCATE_CHARS] + "\n... (truncated)"
         return output or "(no output)"
     except subprocess.TimeoutExpired:
         return f"ERROR: Code execution timed out (>{timeout}s)"
@@ -138,12 +141,14 @@ class DataExplorer:
         data_subdir: str,
         max_steps: int = 30,
         python_bin: str = "",
+        exec_timeout_s: int = 120,
     ):
         self.llm = llm_client
         self.data_root = data_root
         self.data_subdir = data_subdir
         self.max_steps = max_steps
         self.python_bin = python_bin or "python"
+        self.exec_timeout_s = exec_timeout_s
         self.total_tokens = 0
 
     def explore(self, purpose: str) -> tuple[str, int]:
@@ -160,6 +165,7 @@ class DataExplorer:
             data_subdir=self.data_subdir,
             max_steps=self.max_steps,
             purpose=purpose,
+            truncate_chars=_OUTPUT_TRUNCATE_CHARS,
         )
 
         messages = [
@@ -215,7 +221,10 @@ class DataExplorer:
                         f"Explorer step {step}: executing {len(codes)} block(s) "
                         f"({len(combined)} chars)"
                     )
-                    output = _execute_code(combined, work_dir, self.python_bin)
+                    output = _execute_code(
+                        combined, work_dir, self.python_bin,
+                        timeout=self.exec_timeout_s,
+                    )
                     exec_count += 1
                     no_code_streak = 0
                     messages.append({"role": "assistant", "content": resp.content})

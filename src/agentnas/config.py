@@ -19,6 +19,7 @@ class LLMConfig(BaseModel):
     temperature: float = 0.7
     seed: int | None = None
     max_tokens: int = 64000
+    max_retries: int = 5  # transient-API-error retries (exponential backoff)
     anthropic_api_key: str = ""
     openai_api_key: str = ""
 
@@ -104,6 +105,9 @@ class BudgetConfig(BaseModel):
     # Phase 1 planner-loop guards (previously hardcoded)
     max_consecutive_explores: int = 2  # force an experiment after N explores
     max_empty_iterations: int = 10  # abort after N iterations with no proposals
+    # Sandboxed-subprocess timeouts (previously hardcoded)
+    code_exec_timeout_s: int = 120  # explorer/modularizer code execution
+    executor_validate_timeout_s: int = 60  # executor CPU forward-pass validation
     max_cfg_retries: int = 10
     cfg_validation_samples: int = 50
     top_k_final: int = 8  # Number of top architectures for final training (M-01)
@@ -121,6 +125,11 @@ class GPUConfig(BaseModel):
     final_time_limit_s: int = 86400  # 24 hours
     max_vram_mb: int = 11264  # RTX 2080 Ti (11 GB) — production default
     proxy_epoch_fraction: float = 0.3  # Proxy trains 30% of proposed epochs
+    # Hard-kill buffer added to a worker's training time limit before the
+    # process group is terminated (previously hardcoded at 1 hr).
+    worker_timeout_buffer_s: int = 3600
+    # Pre-training VRAM gate: estimated training VRAM = forward VRAM × this.
+    vram_estimate_multiplier: float = 2.5
     # num_workers controlled via AGENTNAS_NUM_WORKERS env var (default 4)
 
 

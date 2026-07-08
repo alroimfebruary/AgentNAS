@@ -128,7 +128,8 @@ def run_worker(work_dir: str) -> None:
             forward_vram_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
             logger.info(f"Forward pass VRAM: {forward_vram_mb:.0f} MB")
             # Rough estimate: backward uses ~2x forward memory
-            estimated_training_vram = forward_vram_mb * 2.5
+            multiplier = args.get("vram_estimate_multiplier", 2.5)
+            estimated_training_vram = forward_vram_mb * multiplier
             max_vram = args.get("max_vram_mb", 0)
             if max_vram > 0 and estimated_training_vram > max_vram:
                 raise ValueError(

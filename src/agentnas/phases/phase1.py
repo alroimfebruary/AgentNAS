@@ -87,7 +87,9 @@ def _run_training_subprocess(
     save_dir: Path,
     python_bin: str,
     max_vram_mb: int = 0,
-    proxy_epoch_fraction: float = 0.3, 
+    proxy_epoch_fraction: float = 0.3,
+    timeout_buffer_s: int = 3600,
+    vram_estimate_multiplier: float = 2.5,
 ) -> dict[str, Any]:
     """Run training in a subprocess on a specific GPU.
 
@@ -112,6 +114,7 @@ def _run_training_subprocess(
         "seed": seed,
         "max_vram_mb": max_vram_mb,
         "proxy_epoch_fraction": proxy_epoch_fraction,
+        "vram_estimate_multiplier": vram_estimate_multiplier,
         # Custom-benchmark files to replay in the worker process
         "benchmark_files": loaded_benchmark_files(),
     }
@@ -124,7 +127,9 @@ def _run_training_subprocess(
     # Ensure the agentnas package is importable even without an installed dist
     env["PYTHONPATH"] = str(project_root() / "src") + ":" + env.get("PYTHONPATH", "")
 
-    timeout = int(time_limit_s + max(3600, time_limit_s * 0.10))  # 1-hr wall-clock buffer minimum, 10% for long runs
+    # Wall-clock buffer beyond the training limit before hard-killing the
+    # worker: at least timeout_buffer_s, or 10% for long runs.
+    timeout = int(time_limit_s + max(timeout_buffer_s, time_limit_s * 0.10))
     stdout_path = work_dir / "worker_stdout.log"
     stderr_path = work_dir / "worker_stderr.log"
 
@@ -350,6 +355,7 @@ def _run_phase1_main(
         time_limit_min=config.gpu.proxy_time_limit_s // 60,
         data_root=config.data_root or "",
         max_retries=config.budget.max_executor_retries,
+        validate_timeout_s=config.budget.executor_validate_timeout_s,
         python_bin=python_bin,
         proxy_epoch_pct=int(config.gpu.proxy_epoch_fraction * 100),
     )
@@ -385,6 +391,7 @@ def _run_phase1_main(
         data_subdir=explorer_subdir,
         max_steps=config.budget.max_explorer_steps,
         python_bin=python_bin,
+        exec_timeout_s=config.budget.code_exec_timeout_s,
     )
 
     # ---- Phase 1 Main Loop ----
@@ -559,6 +566,8 @@ def _run_phase1_main(
                         save_dir=save_dir,
                         python_bin=python_bin,
                         max_vram_mb=config.gpu.max_vram_mb,
+                        timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+                        vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
                         proxy_epoch_fraction=config.gpu.proxy_epoch_fraction,
                     )
                     return (a_id, desc, code, result, tok)
@@ -675,6 +684,8 @@ def _run_phase1_main(
                 save_dir=save_dir,
                 python_bin=python_bin,
                 max_vram_mb=config.gpu.max_vram_mb,
+                timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+                vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
                 proxy_epoch_fraction=1.0,
             )
             logger.info(
@@ -765,6 +776,8 @@ def _run_phase1_main(
                 save_dir=save_dir,
                 python_bin=python_bin,
                 max_vram_mb=config.gpu.max_vram_mb,
+                timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+                vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
             )
             logger.info(
                 f"Test-final {arch['arch_id']}: "
@@ -916,6 +929,8 @@ def _run_phase1_fixed_seed(
             save_dir=save_dir,
             python_bin=python_bin,
             max_vram_mb=config.gpu.max_vram_mb,
+            timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+            vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
             proxy_epoch_fraction=1.0,
         )
     finally:
@@ -956,6 +971,8 @@ def _run_phase1_fixed_seed(
             save_dir=save_dir,
             python_bin=python_bin,
             max_vram_mb=config.gpu.max_vram_mb,
+            timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+            vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
         )
     finally:
         gpu_pool.release(gpu_id)

@@ -251,6 +251,7 @@ def run_modularize_in_place(
         max_retries=max_retries,
         python_bin=sys.executable,
         seed=0,
+        exec_timeout_s=config.budget.code_exec_timeout_s,
     )
 
     t0 = time.time()
@@ -384,6 +385,7 @@ def run_clone_and_modularize(
         max_retries=max_retries,
         python_bin=sys.executable,
         seed=0,
+        exec_timeout_s=config.budget.code_exec_timeout_s,
     )
 
     t0 = time.time()

@@ -8,6 +8,7 @@ llm:
   model: claude-sonnet-4-6
   temperature: 0.7
   max_tokens: 64000
+  max_retries: 5                # transient-API-error retries (exponential backoff)
 
 budget:
   max_evaluations: 160
@@ -17,6 +18,8 @@ budget:
   max_explorer_steps: 30
   max_consecutive_explores: 2   # Phase 1: force an experiment after N explores
   max_empty_iterations: 10      # Phase 1: abort after N iterations with no proposals
+  code_exec_timeout_s: 120      # explorer/modularizer sandboxed code execution
+  executor_validate_timeout_s: 60  # executor CPU forward-pass validation
   max_cfg_retries: 10
   cfg_validation_samples: 50
   max_slots: 20
@@ -28,6 +31,8 @@ gpu:
   final_time_limit_s: 86400   # 24 hours
   max_vram_mb: 11264          # RTX 2080 Ti — 11 GB
   proxy_epoch_fraction: 0.3   # Proxy trains 30% of proposed epochs
+  worker_timeout_buffer_s: 3600   # hard-kill buffer beyond the training limit
+  vram_estimate_multiplier: 2.5   # VRAM gate: est. training VRAM = forward × this
 
 evolution:
   population_size: 16

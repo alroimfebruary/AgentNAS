@@ -217,6 +217,8 @@ def run_phase3_gdas(config: PipelineConfig, resume: bool = True) -> dict[str, An
         save_dir=save_dir,
         python_bin=python_bin,
         max_vram_mb=config.gpu.max_vram_mb,
+        timeout_buffer_s=config.gpu.worker_timeout_buffer_s,
+        vram_estimate_multiplier=config.gpu.vram_estimate_multiplier,
     )
 
     # Log the single evaluation row.

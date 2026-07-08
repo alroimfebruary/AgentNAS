@@ -349,6 +349,11 @@ evolution:
   max_generations: 10
 ```
 
+The block above is the paper-relevant subset; `configs/default.yaml` lists
+the full knob set (sandbox/validation timeouts, LLM retries, worker kill
+buffer, VRAM-gate multiplier, planner-loop guards) — all defaulting to the
+paper-run values.
+
 Two conventions worth knowing:
 
 - **Metrics are always lower = better** — a pipeline-wide invariant (report

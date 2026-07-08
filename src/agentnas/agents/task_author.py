@@ -181,6 +181,7 @@ class TaskAuthor:
         max_turns: int = 25,
         max_attempts: int = 4,
         python_bin: str = "",
+        exec_timeout_s: int = 120,
         validate_fn=None,
     ):
         self.llm = llm_client
@@ -192,6 +193,7 @@ class TaskAuthor:
         self.max_turns = max_turns
         self.max_attempts = max_attempts
         self.python_bin = python_bin or sys.executable
+        self.exec_timeout_s = exec_timeout_s
         self.validate_fn = validate_fn or _default_validate
 
     def _system_prompt(self) -> str:
@@ -277,7 +279,10 @@ class TaskAuthor:
                 if codes:
                     no_progress = 0
                     combined = "\n\n# --- next block ---\n\n".join(codes)
-                    output = _execute_code(combined, work_dir, self.python_bin)
+                    output = _execute_code(
+                        combined, work_dir, self.python_bin,
+                        timeout=self.exec_timeout_s,
+                    )
                     messages.append({"role": "assistant", "content": resp.content})
                     messages.append({
                         "role": "user",

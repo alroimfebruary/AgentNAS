@@ -169,6 +169,7 @@ def _validate_model_code(
     task_name: str,
     data_root: str,
     python_bin: str,
+    timeout_s: int = 60,
 ) -> tuple[bool, str]:
     """Validate model by running a dummy forward pass in a subprocess on CPU.
 
@@ -211,7 +212,7 @@ print("VALIDATION_OK")
         try:
             result = subprocess.run(
                 [python_bin, str(tmpdir / "validate.py")],
-                capture_output=True, text=True, timeout=60, env=env,
+                capture_output=True, text=True, timeout=timeout_s, env=env,
             )
             if "VALIDATION_OK" in result.stdout:
                 return True, result.stdout
@@ -246,6 +247,7 @@ class CodeExecutor:
         max_retries: int = 10,
         python_bin: str = "",
         proxy_epoch_pct: int = 30,
+        validate_timeout_s: int = 60,
     ):
         self.llm = llm_client
         self.task_name = task_name
@@ -256,6 +258,7 @@ class CodeExecutor:
         self.data_root = data_root
         self.max_retries = max_retries
         self.python_bin = python_bin or "python"
+        self.validate_timeout_s = validate_timeout_s
 
         # Build output spec string
         if "num_classes" in output_spec:
@@ -369,6 +372,7 @@ class CodeExecutor:
             ok, validation_output = _validate_model_code(
                 model_code, self.input_shape, self.task_name,
                 self.data_root, self.python_bin,
+                timeout_s=self.validate_timeout_s,
             )
 
             if ok:
@@ -518,6 +522,7 @@ class CodeExecutor:
             ok, validation_output = _validate_model_code(
                 test_code, input_shape_at_slot, self.task_name,
                 self.data_root, self.python_bin,
+                timeout_s=self.validate_timeout_s,
             )
 
             if ok:
