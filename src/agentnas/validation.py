@@ -24,7 +24,11 @@ from pathlib import Path
 
 import torch
 
-from agentnas.benchmarks.registry import get_benchmark, load_benchmark_file
+from agentnas.benchmarks.registry import (
+    get_benchmark,
+    list_benchmarks,
+    load_benchmark_file,
+)
 from agentnas.config import TaskConfig
 from agentnas.utils.explorer_data import _is_allowed, build_explorer_data_dir
 from agentnas.utils.paths import project_root
@@ -221,7 +225,13 @@ def validate_custom_task(
     report = _Report(echo=echo)
 
     report.section("Registration")
-    new_tasks = load_benchmark_file(benchmark_file)
+    try:
+        new_tasks = load_benchmark_file(benchmark_file)
+    except Exception as e:  # noqa: BLE001 — the finding itself
+        report.fail(
+            f"benchmark file failed to load: {type(e).__name__}: {e}"
+        )
+        return False
     if new_tasks:
         report.ok(f"{Path(benchmark_file).name} registered: {', '.join(new_tasks)}")
     if task is None:
@@ -233,6 +243,12 @@ def validate_custom_task(
                 f"--task to pick one"
             )
             return False
+    if task not in list_benchmarks():
+        report.fail(
+            f"task '{task}' is not registered (the file registered: "
+            f"{new_tasks or 'nothing new'})"
+        )
+        return False
 
     report.section("Contract")
     # __init__ must work without any data present (metadata introspection).

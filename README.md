@@ -414,10 +414,15 @@ pipeline — see the runnable tutorial in
 
 ```bash
 # 1. Define the task: subclass NpyClassificationBenchmark (3 class attrs)
-#    or BaseBenchmark (full control), decorated with @register_benchmark.
+#    or BaseBenchmark (full control), decorated with @register_benchmark —
+#    or let an agent write the file for you from the data + a description:
+agentnas init-task --task my_task --data-root /path/to/data \
+    --describe "ECG windows, 4 classes, npz per split, baseline F1 0.72"
+
 # 2. Validate before spending budget — contract, loaders, test-set
 #    isolation, split integrity, metric sanity, and a preview of exactly
-#    what the LLM agents will see:
+#    what the LLM agents will see (init-task already loops on this until
+#    it passes; review the generated file yourself regardless):
 agentnas validate-task my_task.py --data-root /path/to/data
 
 # 3. Run:

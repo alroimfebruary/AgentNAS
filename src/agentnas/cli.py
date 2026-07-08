@@ -253,6 +253,91 @@ def clone_and_modularize_cmd(
         click.echo(f"  {k}: {v}")
 
 
+@main.command("init-task")
+@click.option("--task", required=True, help="Task name to register")
+@click.option("--data-root", required=True,
+              help="Root directory; data expected at <data-root>/<data-subdir>/")
+@click.option("--data-subdir", default=None,
+              help="Task's directory under data-root (default: the task name)")
+@click.option("--describe", default="",
+              help="What the dataset is: domain, formats, labels, known baselines")
+@click.option("--out", "out_path", default=None,
+              help="Output benchmark file (default: <task>.py)")
+@click.option("--llm-model", default="claude-sonnet-4-6",
+              help="Authoring model (a strong model pays for itself here)")
+@click.option("--max-attempts", type=int, default=4,
+              help="Max file emissions before giving up")
+def init_task_cmd(
+    task: str,
+    data_root: str,
+    data_subdir: str | None,
+    describe: str,
+    out_path: str | None,
+    llm_model: str,
+    max_attempts: int,
+):
+    """Author a --benchmark-file for your dataset with an LLM agent.
+
+    The agent inspects the data by executing code, writes the benchmark
+    file, and iterates against `agentnas validate-task` until it passes.
+    It never starts a search — review the generated file first.
+    """
+    from agentnas.agents.task_author import TaskAuthor
+    from agentnas.config import LLMConfig
+    from agentnas.llm.client import LLMClient
+    from agentnas.llm.logger import LLMLogger
+
+    data_root_abs = str(Path(data_root).resolve())
+    subdir = data_subdir or task
+    if not (Path(data_root_abs) / subdir).exists():
+        click.echo(f"Error: data directory not found: {data_root_abs}/{subdir}/",
+                   err=True)
+        sys.exit(1)
+    out = Path(out_path or f"{task}.py")
+    if out.exists():
+        click.echo(f"Error: {out} already exists — pass --out or remove it.",
+                   err=True)
+        sys.exit(1)
+
+    log_dir = Path("init_task_logs") / task
+    llm = LLMClient.from_config(
+        LLMConfig(model=llm_model), logger=LLMLogger(log_dir).set_agent("author")
+    )
+    click.echo(f"Authoring {out} for task '{task}' with {llm_model} "
+               f"(transcripts: {log_dir}/) ...")
+
+    author = TaskAuthor(
+        llm_client=llm, task=task, data_root=data_root_abs, data_subdir=subdir,
+        out_path=out, description=describe, max_attempts=max_attempts,
+    )
+    result = author.author()
+
+    click.echo(f"\n{'=' * 60}")
+    if result.success:
+        click.echo(f"VALIDATED: {out} "
+                   f"({result.attempts} attempt(s), {result.turns} turns, "
+                   f"{result.tokens:,} tokens)")
+        click.echo("\nLast validation report:")
+        click.echo(result.last_report)
+        click.echo(f"\nNEXT STEPS — review before spending GPU/LLM budget:")
+        click.echo(f"  1. Read {out}: check split logic and label semantics.")
+        click.echo(f"  2. Re-check anytime: agentnas validate-task {out} "
+                   f"--data-root {data_root}")
+        click.echo(f"  3. Run: agentnas run --task {task} --phase 1 "
+                   f"--benchmark-file {out} --data-root {data_root}")
+        sys.exit(0)
+    click.echo(f"FAILED after {result.attempts} attempt(s) / {result.turns} "
+               f"turns ({result.tokens:,} tokens).")
+    if result.last_report:
+        click.echo("\nLast validation report / reason:")
+        click.echo(result.last_report[:3000])
+    if out.exists():
+        click.echo(f"\nThe last attempt is at {out} — fix it manually "
+                   f"(agentnas validate-task {out} --data-root {data_root}) "
+                   f"or rerun with a stronger --llm-model.")
+    sys.exit(1)
+
+
 @main.command("validate-task")
 @click.argument("benchmark_file", type=click.Path(exists=True, path_type=Path))
 @click.option("--task", default=None,

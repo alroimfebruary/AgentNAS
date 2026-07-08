@@ -14,7 +14,16 @@ synthetic classification task with (3, 16, 16) inputs.
 
 ## 2. Define the task (one file)
 
-Two authoring styles:
+Don't want to write it yourself? An LLM agent can inspect the data and
+author the file, iterating against the validator until it passes:
+
+```bash
+agentnas init-task --task toy_task --data-root ./toy_data \
+    --describe "synthetic 4-class images, (3,16,16) float32, pre-split npy"
+```
+
+The result is an ordinary benchmark file you review and own. Two manual
+authoring styles:
 
 - **[`toy_task.py`](toy_task.py)** — the convenience route. If your data is
   pre-split `.npy` classification arrays, a task is three class attributes on
