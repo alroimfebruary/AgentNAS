@@ -1,0 +1,9 @@
+name: ecg
+data_dir: ecg
+input_shape: [1, 1000]
+num_classes: 4
+loss: cross_entropy
+metric: f1                    # 1 - macro F1 (lower=better)
+lower_is_better: true
+sota_metric: 0.28             # Human SOTA: macro F1 0.72 → 1-F1 = 0.28
+sota_description: "Human SOTA 1-F1 = 0.28 (F1 = 0.72)"

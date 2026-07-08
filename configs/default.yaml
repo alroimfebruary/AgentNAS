@@ -1,0 +1,36 @@
+# AutoSpace default pipeline configuration
+# Override via CLI flags or per-experiment config files
+
+task: ninapro
+seed: 42
+
+llm:
+  model: claude-sonnet-4-6
+  temperature: 0.7
+  max_tokens: 64000
+
+budget:
+  max_evaluations: 160
+  patience: 64
+  nas_patience: 64
+  max_executor_retries: 10
+  max_explorer_steps: 30
+  max_cfg_retries: 10
+  cfg_validation_samples: 50
+  max_slots: 20
+  max_alternatives_per_slot: 8
+
+gpu:
+  n_gpu: 8                    # RTX 2080 Ti × 8
+  proxy_time_limit_s: 3600    # 60 minutes (hard cap; primary limit is epoch-based)
+  final_time_limit_s: 86400   # 24 hours
+  max_vram_mb: 11264          # RTX 2080 Ti — 11 GB
+  proxy_epoch_fraction: 0.3   # Proxy trains 30% of proposed epochs
+
+evolution:
+  population_size: 16
+  max_generations: 10
+  tournament_size: 5
+  structural_mutation_prob: 0.5
+  diversity_threshold: 5
+  high_structural_prob: 0.8

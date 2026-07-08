@@ -1,0 +1,9 @@
+name: satellite
+data_dir: satellite
+input_shape: [1, 46]
+num_classes: 24
+loss: cross_entropy
+metric: accuracy              # 1 - accuracy (lower=better)
+lower_is_better: true
+sota_metric: 0.1251           # SOTA error rate 12.51%
+sota_description: "SOTA 1-accuracy = 0.1251 (accuracy 87.49%)"

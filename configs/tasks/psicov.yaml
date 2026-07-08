@@ -1,0 +1,9 @@
+name: psicov
+data_dir: psicov
+input_shape: [57, 128, 128]       # 128x128 sliding window patches
+output_shape: [1, 128, 128]
+loss: mse
+metric: mae_lr_d8             # MAE at d<=8A, sep>=24 (lower=better)
+lower_is_better: true
+sota_metric: 2.94             # SOTA MAE = 2.94
+sota_description: "SOTA MAE at d<=8A sep>=24 = 2.94"

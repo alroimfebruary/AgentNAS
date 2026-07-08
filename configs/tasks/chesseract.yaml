@@ -1,0 +1,9 @@
+name: chesseract
+data_dir: Chesseract
+input_shape: [12, 8, 8]
+num_classes: 3
+loss: cross_entropy
+metric: accuracy              # 1 - accuracy (lower=better)
+lower_is_better: true
+sota_metric: 0.3117           # SOTA 1-accuracy = 0.3117 (accuracy 68.83%)
+sota_description: "SOTA 1-accuracy = 0.3117 (accuracy 68.83%)"

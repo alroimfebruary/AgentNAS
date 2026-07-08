@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autospace"
+version = "0.1.0"
+description = "LLM + Grammar-Based Neural Architecture Search Pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "torchaudio>=2.0",
+    "fvcore",
+    "anthropic",
+    "openai",
+    "pydantic>=2.0",
+    "click",
+    "pyyaml",
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "librosa",
+    "soundfile",
+    "h5py",
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "tqdm",
+]
+
+[project.scripts]
+autospace = "autospace.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-timeout"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
