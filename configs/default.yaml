@@ -1,4 +1,4 @@
-# AutoSpace default pipeline configuration
+# AgentNAS default pipeline configuration
 # Override via CLI flags or per-experiment config files
 
 task: ninapro

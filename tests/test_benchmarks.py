@@ -7,7 +7,7 @@ NB360_ROOT = str(Path(__file__).parent.parent / "NAS-Bench-360-Benchmarks")
 
 
 def test_cifar100():
-    from autospace.benchmarks.cifar100 import CIFAR100Benchmark
+    from agentnas.benchmarks.cifar100 import CIFAR100Benchmark
     b = CIFAR100Benchmark(NB360_ROOT)
 
     tl, vl = b.get_search_loaders(4, num_workers=0)
@@ -26,7 +26,7 @@ def test_cifar100():
 
 
 def test_ecg():
-    from autospace.benchmarks.ecg import ECGBenchmark
+    from agentnas.benchmarks.ecg import ECGBenchmark
     b = ECGBenchmark(NB360_ROOT)
 
     tl, vl = b.get_search_loaders(4, num_workers=0)
@@ -39,7 +39,7 @@ def test_ecg():
 
 
 def test_darcyflow():
-    from autospace.benchmarks.darcyflow import DarcyFlowBenchmark
+    from agentnas.benchmarks.darcyflow import DarcyFlowBenchmark
     b = DarcyFlowBenchmark(NB360_ROOT)
 
     tl, vl = b.get_search_loaders(4, num_workers=0)
@@ -54,7 +54,7 @@ def test_darcyflow():
 
 
 def test_fsd50k():
-    from autospace.benchmarks.fsd50k import FSD50KBenchmark
+    from agentnas.benchmarks.fsd50k import FSD50KBenchmark
     b = FSD50KBenchmark(NB360_ROOT)
 
     tl, vl = b.get_search_loaders(4, num_workers=0)

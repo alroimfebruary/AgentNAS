@@ -34,7 +34,7 @@ logger = logging.getLogger("prepare")
 
 
 def main() -> None:
-    from autospace.utils.explorer_data import (
+    from agentnas.utils.explorer_data import (
         BUNDLED_PREPROCESSED_TASKS,
         ensure_preprocessed,
     )

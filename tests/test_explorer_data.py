@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from autospace.utils.explorer_data import (
+from agentnas.utils.explorer_data import (
     BLIND_EXTRA_EXCLUSIONS,
     BLIND_RENAMES,
     BUNDLED_PREPROCESSED_TASKS,

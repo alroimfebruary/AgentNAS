@@ -1,5 +1,5 @@
-# AutoSpace production configuration — RTX 2080 Ti (11 GB), 8 GPUs per node
-# Usage: autospace run --task ninapro --phase 1 --config configs/production.yaml
+# AgentNAS production configuration — RTX 2080 Ti (11 GB), 8 GPUs per node
+# Usage: agentnas run --task ninapro --phase 1 --config configs/production.yaml
 
 task: ninapro
 seed: 42

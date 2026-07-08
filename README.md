@@ -38,17 +38,21 @@ Every run is a four-phase pipeline.
 
 Reproducing one benchmark end-to-end.
 
+> For the exact paper-reproduction snapshot, `git checkout v1.0-reproducible`
+> and follow the README at that tag (the package and CLI there are named
+> `autospace`).
+
 ```bash
 # 1. Environment (Python 3.10+ recommended)
 git clone https://github.com/alroimfebruary/AgentNAS && cd AgentNAS
-git checkout v1.0-reproducible
 conda create -n agentnas python=3.10 -y
 conda activate agentnas
 pip install torch torchvision torchaudio # version that matches your CUDA environment
 pip install -e ".[dev]"
 
-# 2. Anthropic API key
-echo "sk-ant-..." > anthropic_api_key.txt
+# 2. Anthropic API key — env var or key file at the repo root
+export ANTHROPIC_API_KEY="sk-ant-..."
+# (alternative) echo "sk-ant-..." > anthropic_api_key.txt
 
 # 3. Data — download and symlink to the repo root 
 ln -s /path/to/NAS-Bench-360-Benchmarks .
@@ -74,8 +78,8 @@ Fast checks that don't burn LLM tokens:
 pytest tests/
 
 # Per-task loader smoke: shape, split, label range, loss finiteness
-autospace smoke-test --task ninapro
-autospace smoke-test --task all         # walks all 17 loaders (needs data)
+agentnas smoke-test --task ninapro
+agentnas smoke-test --task all         # walks all 17 loaders (needs data)
 ```
 
 ---
@@ -285,7 +289,7 @@ the same 160-eval budget. Requires a Phase 2 grammar to sample from — run
 Phase 1 + Phase 2 first, then invoke Phase 3 in RS mode against that dir.
 
 ```bash
-python -m autospace.cli run \
+python -m agentnas.cli run \
     --task fsd50k --phase 3 --search-mode random \
     --experiment-dir experiments/spherical_claude-sonnet-4-6_seed42
 ```
@@ -295,7 +299,7 @@ python -m autospace.cli run \
 One-shot Gumbel-STE supernet in place of discrete evolution.
 
 ```bash
-python -m autospace.cli run \
+python -m agentnas.cli run \
     --task fsd50k --phase 3 --search-mode gdas --gdas-epochs 90 \
     --experiment-dir experiments/spherical_claude-sonnet-4-6_seed42
 ```
@@ -351,11 +355,11 @@ CLI flags override YAML values per run.
 
 - **`scripts/run_production.py`** — thin wrapper for the standard flow. Exposes
   only the flags a reproduction run needs.
-- **`python -m autospace.cli run`** — full click CLI. Use this when varying
+- **`python -m agentnas.cli run`** — full click CLI. Use this when varying
   Phase 3 search strategy (`--search-mode`), population size, patience,
   budget, or GDAS-specific knobs.
 
-Both share the same phase implementations under `src/autospace/phases/`.
+Both share the same phase implementations under `src/agentnas/phases/`.
 
 ### Useful flags
 

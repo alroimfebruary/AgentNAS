@@ -28,7 +28,7 @@ logger = logging.getLogger("production")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AutoSpace Production Launcher")
+    parser = argparse.ArgumentParser(description="AgentNAS Production Launcher")
     parser.add_argument("--task", required=True, help="Benchmark task name (e.g., fsd50k)")
     parser.add_argument("--phase", type=int, default=0,
                         help="Run specific phase (1/2/3). Default 0 = full pipeline (1→2→3)")
@@ -76,9 +76,9 @@ def main():
             sys.exit(1)
 
     # Base experiment dir: deterministic {task}_{model}_{seed} for safe resume
-    from autospace.config import make_experiment_subdir
+    from agentnas.config import make_experiment_subdir
     if args.fixed_seed_arch:
-        from autospace.grammar.fixed_seeds import resolve_family
+        from agentnas.grammar.fixed_seeds import resolve_family
         resolved_family = resolve_family(task, args.fixed_seed_arch)
     else:
         resolved_family = ""
@@ -95,7 +95,7 @@ def main():
             blind=args.blind_mode, fixed_seed=resolved_family,
         )
 
-    from autospace.config import (
+    from agentnas.config import (
         load_pipeline_config,
     )
 
@@ -113,7 +113,7 @@ def main():
     config = load_pipeline_config(config_path, overrides)
 
     logger.info(f"{'='*60}")
-    logger.info(f"AutoSpace Production Run")
+    logger.info(f"AgentNAS Production Run")
     logger.info(f"{'='*60}")
     logger.info(f"Task:       {task}")
     logger.info(f"Model:      {config.llm.model}")
@@ -174,7 +174,7 @@ def _run_modularize_step(base_dir: str, config, task: str, resume: bool) -> bool
     t0 = time.time()
 
     try:
-        from autospace.phases.phase1_5_modularize import run_modularize_in_place
+        from agentnas.phases.phase1_5_modularize import run_modularize_in_place
         result = run_modularize_in_place(config, phase1_dir, phase2_nudge=True)
         elapsed = time.time() - t0
         logger.info(
@@ -213,14 +213,14 @@ def _run_single_phase(phase: int, base_dir: str, config, task: str, resume: bool
 
     try:
         if phase == 1:
-            from autospace.phases.phase1 import run_phase1
+            from agentnas.phases.phase1 import run_phase1
             result = run_phase1(config, resume=resume)
         elif phase == 2:
             p1_state = Path(f"{base_dir}/phase1/state.json")
             if not p1_state.exists():
                 logger.error("Phase 1 results not found. Run Phase 1 first.")
                 return False
-            from autospace.phases.phase2 import run_phase2
+            from agentnas.phases.phase2 import run_phase2
             result = run_phase2(config, resume=resume)
         elif phase == 3:
             p2_arch = Path(f"{base_dir}/phase2/slotted_arch.json")
@@ -232,7 +232,7 @@ def _run_single_phase(phase: int, base_dir: str, config, task: str, resume: bool
             elif not p3_arch.exists():
                 logger.error("Phase 2 slotted_arch.json not found. Run Phase 2 first.")
                 return False
-            from autospace.phases.phase3 import run_phase3
+            from agentnas.phases.phase3 import run_phase3
             result = run_phase3(config, resume=resume)
         else:
             logger.error(f"Invalid phase: {phase}")
