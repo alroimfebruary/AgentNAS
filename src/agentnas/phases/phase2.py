@@ -255,7 +255,8 @@ def _get_ranked_seeds(
 ) -> list[tuple[dict, float, str]]:
     """Return up to *max_seeds* ranked seed architectures from Phase 1.
 
-    Returns list of ``(seed_dict, metric_value, source_label)`` sorted best-first.
+    Returns list of ``(seed_dict, metric_value, source_label)`` sorted
+    best-first — ascending, since all metrics are lower=better by contract.
     """
     val_final = phase1_state.get("val_final_results", [])
     successful_val_final = [e for e in val_final if e.get("status") == "success"]

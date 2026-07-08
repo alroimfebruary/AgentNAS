@@ -277,7 +277,7 @@ def _run_phase1_main(
             f"Output: {benchmark.output_spec()}\n"
             f"Loss: {tc.loss if tc else 'unknown'}\n"
             f"Metric: {tc.metric if tc else 'unknown'} "
-            f"({'lower is better' if (tc and tc.lower_is_better) else 'higher is better'})"
+            f"(lower is better)"
         )
     else:
         task_readme = f"Task: {config.task}\nInput shape: {benchmark.input_shape()}\nOutput: {benchmark.output_spec()}"
@@ -410,10 +410,10 @@ def _run_phase1_main(
 
 
     # Step 2: Iterative experiment loop
-    max_consecutive_explores = 2  # Prevent explore loops
+    max_consecutive_explores = config.budget.max_consecutive_explores
     consecutive_explores = 0
     empty_iteration_count = 0  # Guard against infinite loop with no proposals
-    max_empty_iterations = 10
+    max_empty_iterations = config.budget.max_empty_iterations
 
     while not planner.should_force_stop:
         logger.info(f"=== Iteration {planner.state.iteration + 1} "

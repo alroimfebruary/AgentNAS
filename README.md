@@ -349,6 +349,18 @@ evolution:
   max_generations: 10
 ```
 
+Two conventions worth knowing:
+
+- **Metrics are always lower = better** — a pipeline-wide invariant (report
+  `1 - accuracy`, `1 - AUROC`, ...). Selection, patience, evolution fitness,
+  and prompts all assume it; `agentnas validate-task` enforces it for custom
+  tasks.
+- **Extending a stopped Phase 1 search**: resume with a larger budget —
+  `agentnas run --task X --phase 1 --budget 300` on the same experiment dir
+  continues where it left off (`budget_used` persists; the cap is re-read
+  from the flags). A run that already finished its final trainings is
+  `completed` and won't reopen — continue with Phase 2/3 instead.
+
 CLI flags override YAML values per run.
 
 ### Two CLI entry points

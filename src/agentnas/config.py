@@ -52,7 +52,13 @@ class LLMConfig(BaseModel):
 
 
 class TaskConfig(BaseModel):
-    """Per-task benchmark metadata, derived from the benchmark class."""
+    """Per-task benchmark metadata, derived from the benchmark class.
+
+    Metric orientation is an invariant, not a knob: every metric in the
+    pipeline is normalized to lower=better (report 1 - accuracy, 1 - AUROC,
+    ...). Selection, patience, evolution fitness, checkpointing, and prompts
+    all assume it; `agentnas validate-task` enforces it for custom tasks.
+    """
 
     name: str
     data_dir: str = ""
@@ -60,8 +66,7 @@ class TaskConfig(BaseModel):
     num_classes: int | None = None
     output_shape: list[int] | None = None
     loss: str  # cross_entropy, bce_with_logits, mse, lp_loss
-    metric: str  # accuracy, map, auroc, f1, mae, relative_l2
-    lower_is_better: bool = True  # All metrics normalized to lower=better
+    metric: str  # accuracy, map, auroc, f1, mae, relative_l2 — lower=better
     sota_metric: float | None = None  # Human SOTA in our metric scale
     sota_description: str = ""  # Human-readable SOTA description
 
@@ -83,7 +88,6 @@ class TaskConfig(BaseModel):
             ),
             loss=benchmark.loss_name,
             metric=benchmark.metric_name,
-            lower_is_better=True,
             sota_metric=benchmark.sota_metric,
             sota_description=benchmark.sota_description,
         )
@@ -97,6 +101,9 @@ class BudgetConfig(BaseModel):
     nas_patience: int = 64  # Phase 3: no improvement for N evals → stop
     max_executor_retries: int = 10
     max_explorer_steps: int = 30
+    # Phase 1 planner-loop guards (previously hardcoded)
+    max_consecutive_explores: int = 2  # force an experiment after N explores
+    max_empty_iterations: int = 10  # abort after N iterations with no proposals
     max_cfg_retries: int = 10
     cfg_validation_samples: int = 50
     top_k_final: int = 8  # Number of top architectures for final training (M-01)

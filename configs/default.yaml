@@ -15,6 +15,8 @@ budget:
   nas_patience: 64
   max_executor_retries: 10
   max_explorer_steps: 30
+  max_consecutive_explores: 2   # Phase 1: force an experiment after N explores
+  max_empty_iterations: 10      # Phase 1: abort after N iterations with no proposals
   max_cfg_retries: 10
   cfg_validation_samples: 50
   max_slots: 20
