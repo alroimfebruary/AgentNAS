@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 """Preprocess bundled-split datasets for the Data Explorer.
 
-Three tasks store train+val+test in a single file and need a train+val-only
-copy for the Explorer. This script is optional — `build_explorer_data_dir()`
-auto-generates these files on first use. Running this script explicitly just
-front-loads the work so the first experiment doesn't pay the ~1-minute cost.
+Tasks whose benchmark class sets `explorer_preprocessed_name` (currently
+spherical, deepsea, ecg) store train+val+test in a single file and need a
+train+val-only copy for the Explorer. This script is optional —
+`build_explorer_data_dir()` auto-generates these files on first use. Running
+this script explicitly just front-loads the work so the first experiment
+doesn't pay the ~1-minute cost.
 
 Outputs land in `configs/explorer_data/<task>/`. Idempotent — skips tasks that
 are already prepared.
@@ -34,14 +36,17 @@ logger = logging.getLogger("prepare")
 
 
 def main() -> None:
-    from agentnas.utils.explorer_data import (
-        BUNDLED_PREPROCESSED_TASKS,
-        ensure_preprocessed,
+    from agentnas.benchmarks.registry import get_benchmark, list_benchmarks
+    from agentnas.utils.explorer_data import ensure_preprocessed
+
+    benchmarks = {t: get_benchmark(t) for t in list_benchmarks()}
+    bundled = sorted(
+        t for t, b in benchmarks.items() if b.explorer_preprocessed_name
     )
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--task", choices=sorted(BUNDLED_PREPROCESSED_TASKS), default=None,
+        "--task", choices=bundled, default=None,
         help="Prepare a single task (default: all)",
     )
     parser.add_argument(
@@ -55,7 +60,7 @@ def main() -> None:
         logger.error(f"source data root not found: {real_root}")
         sys.exit(1)
 
-    tasks = [args.task] if args.task else sorted(BUNDLED_PREPROCESSED_TASKS)
+    tasks = [args.task] if args.task else bundled
     for task in tasks:
         out_dir = PROJECT_ROOT / "configs" / "explorer_data" / task
         if args.force and out_dir.exists():
@@ -63,7 +68,7 @@ def main() -> None:
             shutil.rmtree(out_dir)
 
         logger.info(f"[{task}] preparing...")
-        produced = ensure_preprocessed(task, str(real_root), PROJECT_ROOT)
+        produced = ensure_preprocessed(benchmarks[task], str(real_root), PROJECT_ROOT)
         logger.info(f"[{task}] ok → {produced}")
 
 

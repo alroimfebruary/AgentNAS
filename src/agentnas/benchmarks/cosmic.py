@@ -72,6 +72,17 @@ class CosmicBenchmark(BaseBenchmark):
     Metric: 1 - AUROC (lower=better).
     """
 
+    loss_name = "bce_with_logits"
+    metric_name = "auroc"
+    sota_metric = 0.127
+    sota_description = "SOTA 1-AUROC = 0.127 (AUROC = 0.873)"
+
+    explorer_test_exclusions = ("cosmic_test.pt", "npy_test")
+    explorer_blind_exclusions = (
+        "cosmic_train.pt", "cosmic_valid.pt", "cosmic_dataset.py", "__pycache__",
+    )
+    explorer_blind_renames = {"npy_train": "raw_train"}
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "cosmic")
         self._data_dir = Path(data_root) / "cosmic"

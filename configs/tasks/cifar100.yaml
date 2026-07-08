@@ -1,9 +1,0 @@
-name: cifar100
-data_dir: cifar100
-input_shape: [3, 32, 32]
-num_classes: 100
-loss: cross_entropy
-metric: accuracy              # 1 - accuracy (lower=better)
-lower_is_better: true
-sota_metric: 0.1939           # Human SOTA: 80.61% accuracy → 1-acc = 0.1939
-sota_description: "Human SOTA error rate 19.39% (accuracy 80.61%)"

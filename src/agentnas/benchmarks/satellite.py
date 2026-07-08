@@ -29,6 +29,14 @@ class SatelliteBenchmark(BaseBenchmark):
     Metric: 1 - top-1 accuracy (lower=better).
     """
 
+    loss_name = "cross_entropy"
+    metric_name = "accuracy"
+    sota_metric = 0.1251
+    sota_description = "SOTA 1-accuracy = 0.1251 (accuracy 87.49%)"
+
+    explorer_test_exclusions = ("satellite_test.npy",)
+    explorer_blind_renames = {"satellite_train.npy": "data_train.npy"}
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "satellite")
         self._data_dir = Path(data_root) / "satellite"

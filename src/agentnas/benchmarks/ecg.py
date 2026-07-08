@@ -54,9 +54,42 @@ class ECGBenchmark(BaseBenchmark):
     Metric: 1 - macro F1 (lower=better).
     """
 
+    loss_name = "cross_entropy"
+    metric_name = "f1"
+    sota_metric = 0.28
+    sota_description = "Human SOTA 1-F1 = 0.28 (F1 = 0.72)"
+
+    explorer_preprocessed_name = "challenge2017.pkl"
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "ecg")
         self._data_dir = Path(data_root) / "ecg"
+
+    def prepare_explorer_source(self, out_dir: Path, real_root: Path) -> None:
+        """Save a copy of challenge2017.pkl with the final-mode test split removed.
+
+        Replicates the benchmark loader's split (train_test_split(indices,
+        test_size=0.1, random_state=0)) to identify and drop the ~10% real-test
+        recordings, keeping the ~90% train+val portion.
+        """
+        out_path = out_dir / "challenge2017.pkl"
+        src_path = real_root / "ecg" / "challenge2017.pkl"
+        if not src_path.exists():
+            raise FileNotFoundError(f"ecg source missing: {src_path}")
+        with open(src_path, "rb") as f:
+            data = pickle.load(f, encoding="bytes")
+        signals = data["data"]
+        labels = data["label"]
+        n = len(signals)
+        indices = np.arange(n)
+        train_idx, _test_idx = train_test_split(indices, test_size=0.1, random_state=0)
+        keep = set(train_idx.tolist())
+        filtered = {
+            "data": [signals[i] for i in range(n) if i in keep],
+            "label": [labels[i] for i in range(n) if i in keep],
+        }
+        with open(out_path, "wb") as f:
+            pickle.dump(filtered, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def _load_raw(self) -> tuple[list[np.ndarray], list[int]]:
         """Load raw ECG recordings and labels."""

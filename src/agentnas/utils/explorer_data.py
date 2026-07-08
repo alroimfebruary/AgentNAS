@@ -5,6 +5,10 @@ data directory. Test files are always excluded so the explorer cannot peek at te
 data. In blind mode, domain-leaking files are additionally removed and select
 filenames are aliased to generic names.
 
+The per-task visibility spec — test exclusions, blind renames/exclusions, and
+the preprocessed-copy hook for bundled-split datasets — lives on each benchmark
+class (see BaseBenchmark). This module is the generic machinery that applies it.
+
 The benchmark loader (`get_benchmark(..., data_root=config.data_root)`) continues to
 use the untouched real data directory for training and evaluation — this module only
 affects what the explorer agent sees.
@@ -15,75 +19,10 @@ from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-# -----------------------------------------------------------------------------
-# Per-task configuration tables
-# -----------------------------------------------------------------------------
-
-# Paths (relative to the task's data dir) that hold test data. Always excluded,
-# both in standard and blind modes. Supports nested paths (e.g. "a/b.txt").
-# Directory entries exclude the entire subtree.
-TEST_EXCLUSIONS: dict[str, list[str]] = {
-    # Unseen-NAS — identical layout
-    "addnist": ["test_x.npy", "test_y.npy"],
-    "language": ["test_x.npy", "test_y.npy"],
-    "multnist": ["test_x.npy", "test_y.npy"],
-    "cifartile": ["test_x.npy", "test_y.npy"],
-    "gutenberg": ["test_x.npy", "test_y.npy"],
-    "geoclassing": ["test_x.npy", "test_y.npy"],
-    "chesseract": ["test_x.npy", "test_y.npy"],
-    # NAS-Bench-360 — separable
-    "cifar100": ["test"],
-    "cosmic": ["cosmic_test.pt", "npy_test"],
-    "ninapro": ["ninapro_test.npy", "label_test.npy"],
-    "satellite": ["satellite_test.npy"],
-    # Nested exclusions
-    "fsd50k": [
-        "eval_22050_chunks",
-        "chunks/eval.csv",
-        "precomputed/fsd50k_eval.pt",
-    ],
-    "psicov": ["psicov", "cameo", "psicov.lst", "cameo-hard.lst"],
-    # Whole-file test
-    "darcyflow": ["piececonst_r421_N1024_smooth2.mat"],
-    # Bundled preprocessed — test content is already filtered out during
-    # preprocessing; no additional exclusions needed at walk time.
-    "spherical": [],
-    "deepsea": [],
-    "ecg": [],
-}
-
-# Tasks where the explorer's source dir is a preprocessed train+val-only dataset
-# instead of the real data dir (because the real file bundles train+val+test).
-BUNDLED_PREPROCESSED_TASKS: set[str] = {"spherical", "deepsea", "ecg"}
-
-# Blind-mode-only: map original top-level entry name -> blind alias. Renames
-# apply at the top level of the symlink tree only.
-BLIND_RENAMES: dict[str, dict[str, str]] = {
-    "ninapro": {
-        "ninapro_train.npy": "data_train.npy",
-        "ninapro_val.npy": "data_val.npy",
-        "label_train.npy": "labels_train.npy",
-        "label_val.npy": "labels_val.npy",
-    },
-    "satellite": {"satellite_train.npy": "data_train.npy"},
-    "deepsea": {"deepsea_filtered.npz": "data.npz"},
-    "spherical": {"s2_cifar100": "data.pkl"},
-    "darcyflow": {"piececonst_r421_N1024_smooth1.mat": "data.mat"},
-    "cosmic": {"npy_train": "raw_train"},
-}
-
-# Blind-mode-only: additional exclusions beyond TEST_EXCLUSIONS. For cosmic,
-# the .pt files and their loader module reveal the domain; in blind mode the
-# explorer reads the raw .npy files from npy_train/ (renamed to raw_train/).
-BLIND_EXTRA_EXCLUSIONS: dict[str, list[str]] = {
-    "cosmic": [
-        "cosmic_train.pt",
-        "cosmic_valid.pt",
-        "cosmic_dataset.py",
-        "__pycache__",
-    ],
-}
+if TYPE_CHECKING:
+    from agentnas.benchmarks.base import BaseBenchmark
 
 # File-level patterns always stripped in blind mode (domain visualizations,
 # metadata, original README — the last is always replaced with a curated one).
@@ -172,102 +111,31 @@ def _walk_and_symlink(
 # -----------------------------------------------------------------------------
 # On-demand preprocessing for bundled-split tasks
 #
-# Three tasks store train+val+test in a single file and cannot be filtered by
-# symlinking alone. We preprocess train+val-only copies at
-# configs/explorer_data/<task>/<original_filename>. The files are produced once
-# and cached on disk (~1 GB total). build_explorer_data_dir() calls
-# ensure_preprocessed() which is idempotent and fast on repeat calls.
+# Some datasets store train+val+test in a single file and cannot be filtered by
+# symlinking alone. Their benchmark classes set `explorer_preprocessed_name` and
+# implement `prepare_explorer_source()`, which writes a train+val-only copy to
+# configs/explorer_data/<task>/. The files are produced once and cached on disk
+# (~1 GB total). build_explorer_data_dir() calls ensure_preprocessed() which is
+# idempotent and fast on repeat calls.
 # -----------------------------------------------------------------------------
 
-def _prepare_spherical(out_dir: Path, real_root: Path) -> None:
-    """Save a copy of s2_cifar100 with only the 'train' entry (no 'test')."""
-    import pickle as _pickle
-
-    out_path = out_dir / "s2_cifar100"
-    src_path = real_root / "spherical" / "s2_cifar100"
-    if not src_path.exists():
-        raise FileNotFoundError(f"spherical source missing: {src_path}")
-    with open(src_path, "rb") as f:
-        data = _pickle.load(f, encoding="bytes")
-    filtered = {"train": data["train"]}
-    with open(out_path, "wb") as f:
-        _pickle.dump(filtered, f, protocol=_pickle.HIGHEST_PROTOCOL)
-
-
-def _prepare_deepsea(out_dir: Path, real_root: Path) -> None:
-    """Save a copy of deepsea_filtered.npz with only train/val arrays."""
-    import numpy as _np
-
-    out_path = out_dir / "deepsea_filtered.npz"
-    src_path = real_root / "deepsea" / "deepsea_filtered.npz"
-    if not src_path.exists():
-        raise FileNotFoundError(f"deepsea source missing: {src_path}")
-    data = _np.load(src_path)
-    _np.savez(
-        out_path,
-        x_train=data["x_train"],
-        y_train=data["y_train"],
-        x_val=data["x_val"],
-        y_val=data["y_val"],
-    )
-
-
-def _prepare_ecg(out_dir: Path, real_root: Path) -> None:
-    """Save a copy of challenge2017.pkl with the final-mode test split removed.
-
-    Replicates the benchmark loader's split (train_test_split(indices,
-    test_size=0.1, random_state=0)) to identify and drop the ~10% real-test
-    recordings, keeping the ~90% train+val portion.
-    """
-    import pickle as _pickle
-    import numpy as _np
-    from sklearn.model_selection import train_test_split as _tts
-
-    out_path = out_dir / "challenge2017.pkl"
-    src_path = real_root / "ecg" / "challenge2017.pkl"
-    if not src_path.exists():
-        raise FileNotFoundError(f"ecg source missing: {src_path}")
-    with open(src_path, "rb") as f:
-        data = _pickle.load(f, encoding="bytes")
-    signals = data["data"]
-    labels = data["label"]
-    n = len(signals)
-    indices = _np.arange(n)
-    train_idx, _test_idx = _tts(indices, test_size=0.1, random_state=0)
-    keep = set(train_idx.tolist())
-    filtered = {
-        "data": [signals[i] for i in range(n) if i in keep],
-        "label": [labels[i] for i in range(n) if i in keep],
-    }
-    with open(out_path, "wb") as f:
-        _pickle.dump(filtered, f, protocol=_pickle.HIGHEST_PROTOCOL)
-
-
-_PREP_FNS = {
-    "spherical": _prepare_spherical,
-    "deepsea": _prepare_deepsea,
-    "ecg": _prepare_ecg,
-}
-
-
-def ensure_preprocessed(task: str, real_data_root: str, project_root: Path) -> Path:
+def ensure_preprocessed(
+    benchmark: "BaseBenchmark", real_data_root: str, project_root: Path
+) -> Path:
     """Ensure configs/explorer_data/<task>/ is populated; generate if missing.
 
     Returns the path to the preprocessed task directory. Idempotent — a no-op
-    if the expected output file already exists. For non-bundled tasks this
-    raises KeyError.
+    if the expected output file already exists. For benchmarks that don't set
+    ``explorer_preprocessed_name`` this raises ValueError.
     """
-    if task not in BUNDLED_PREPROCESSED_TASKS:
-        raise KeyError(f"task '{task}' is not a bundled-preprocessed task")
+    if benchmark.explorer_preprocessed_name is None:
+        raise ValueError(
+            f"task '{benchmark.task_name}' is not a bundled-preprocessed task"
+        )
 
-    out_dir = project_root / "configs" / "explorer_data" / task
+    out_dir = project_root / "configs" / "explorer_data" / benchmark.task_name
     # The output file name matches the real source file name
-    expected_names = {
-        "spherical": "s2_cifar100",
-        "deepsea": "deepsea_filtered.npz",
-        "ecg": "challenge2017.pkl",
-    }
-    expected = out_dir / expected_names[task]
+    expected = out_dir / benchmark.explorer_preprocessed_name
     if expected.exists():
         return out_dir
 
@@ -275,11 +143,11 @@ def ensure_preprocessed(task: str, real_data_root: str, project_root: Path) -> P
     # subdirectory root (e.g., NAS-Bench-360-Benchmarks) — strip trailing
     # task name if present.
     real_root = Path(real_data_root)
-    if real_root.name == task:  # pointed directly at <root>/spherical
+    if real_root.name == benchmark.task_name:  # pointed directly at <root>/spherical
         real_root = real_root.parent
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    _PREP_FNS[task](out_dir, real_root)
+    benchmark.prepare_explorer_source(out_dir, real_root)
     return out_dir
 
 
@@ -289,8 +157,7 @@ def ensure_preprocessed(task: str, real_data_root: str, project_root: Path) -> P
 
 def build_explorer_data_dir(
     real_data_root: str,
-    task: str,
-    task_data_subdir: str,
+    benchmark: "BaseBenchmark",
     blind_mode: bool,
     project_root: Path,
 ) -> tuple[Path, str]:
@@ -298,8 +165,8 @@ def build_explorer_data_dir(
 
     Args:
         real_data_root: Filesystem root containing the task's real data dir.
-        task: Task name key (e.g., "chesseract", "cosmic").
-        task_data_subdir: Subdirectory name inside real_data_root (from task YAML).
+        benchmark: Benchmark instance supplying the per-task visibility spec
+            (test exclusions, blind renames/exclusions, preprocessed hook).
         blind_mode: If True, apply domain-knowledge blinding on top of test isolation.
         project_root: Repo root, used to locate configs/explorer_readmes,
             configs/blind_readmes, configs/explorer_data.
@@ -308,15 +175,16 @@ def build_explorer_data_dir(
         (temp_dir, "dataset") — pass these as (data_root, data_subdir) to
         DataExplorer. The caller must clean up temp_dir with shutil.rmtree().
     """
+    task = benchmark.task_name
     temp_dir = Path(tempfile.mkdtemp(prefix="agentnas_explorer_"))
     dataset_dir = temp_dir / "dataset"
     dataset_dir.mkdir()
 
     # Determine source directory
-    if task in BUNDLED_PREPROCESSED_TASKS:
+    if benchmark.explorer_preprocessed_name is not None:
         # Auto-generate preprocessed copy if missing (idempotent; cached on disk).
         try:
-            source_dir = ensure_preprocessed(task, real_data_root, project_root)
+            source_dir = ensure_preprocessed(benchmark, real_data_root, project_root)
         except FileNotFoundError as e:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise FileNotFoundError(
@@ -324,17 +192,17 @@ def build_explorer_data_dir(
                 f"Ensure the real data exists under real_data_root."
             ) from e
     else:
-        source_dir = Path(real_data_root) / task_data_subdir
+        source_dir = Path(real_data_root) / benchmark.data_subdir
         if not source_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise FileNotFoundError(f"Data directory not found: {source_dir}")
 
     # Assemble exclusion list
-    exclusions = list(TEST_EXCLUSIONS.get(task, []))
+    exclusions = list(benchmark.explorer_test_exclusions)
     if blind_mode:
-        exclusions.extend(BLIND_EXTRA_EXCLUSIONS.get(task, []))
+        exclusions.extend(benchmark.explorer_blind_exclusions)
 
-    top_level_renames = BLIND_RENAMES.get(task, {}) if blind_mode else {}
+    top_level_renames = dict(benchmark.explorer_blind_renames) if blind_mode else {}
 
     # Mirror the source dir
     _walk_and_symlink(

@@ -20,6 +20,19 @@ class NinaProBenchmark(BaseBenchmark):
     Metric: 1 - top-1 accuracy (lower=better).
     """
 
+    loss_name = "cross_entropy"
+    metric_name = "accuracy"
+    sota_metric = 0.0637
+    sota_description = "SOTA 1-accuracy = 0.0637 (accuracy 93.63%)"
+
+    explorer_test_exclusions = ("ninapro_test.npy", "label_test.npy")
+    explorer_blind_renames = {
+        "ninapro_train.npy": "data_train.npy",
+        "ninapro_val.npy": "data_val.npy",
+        "label_train.npy": "labels_train.npy",
+        "label_val.npy": "labels_val.npy",
+    }
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "ninapro")
         self._data_dir = Path(data_root) / "ninapro"

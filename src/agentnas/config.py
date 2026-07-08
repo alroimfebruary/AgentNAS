@@ -52,7 +52,7 @@ class LLMConfig(BaseModel):
 
 
 class TaskConfig(BaseModel):
-    """Per-task benchmark configuration."""
+    """Per-task benchmark metadata, derived from the benchmark class."""
 
     name: str
     data_dir: str = ""
@@ -64,6 +64,29 @@ class TaskConfig(BaseModel):
     lower_is_better: bool = True  # All metrics normalized to lower=better
     sota_metric: float | None = None  # Human SOTA in our metric scale
     sota_description: str = ""  # Human-readable SOTA description
+
+    @classmethod
+    def from_benchmark(cls, benchmark) -> "TaskConfig":
+        """Derive task metadata from a BaseBenchmark instance.
+
+        The benchmark class is the single source of truth; this is a plain
+        projection of its metadata attributes and shape methods.
+        """
+        spec = benchmark.output_spec()
+        return cls(
+            name=benchmark.task_name,
+            data_dir=benchmark.data_subdir,
+            input_shape=list(benchmark.input_shape()),
+            num_classes=spec.get("num_classes"),
+            output_shape=(
+                list(spec["output_shape"]) if "output_shape" in spec else None
+            ),
+            loss=benchmark.loss_name,
+            metric=benchmark.metric_name,
+            lower_is_better=True,
+            sota_metric=benchmark.sota_metric,
+            sota_description=benchmark.sota_description,
+        )
 
 
 class BudgetConfig(BaseModel):
@@ -156,18 +179,6 @@ class PipelineConfig(BaseModel):
         return self
 
 
-def load_task_config(task_name: str, configs_dir: Path | None = None) -> TaskConfig:
-    """Load per-task configuration from YAML."""
-    if configs_dir is None:
-        configs_dir = project_root() / "configs" / "tasks"
-    config_path = configs_dir / f"{task_name}.yaml"
-    if not config_path.exists():
-        raise FileNotFoundError(f"Task config not found: {config_path}")
-    with open(config_path) as f:
-        data = yaml.safe_load(f)
-    return TaskConfig(**data)
-
-
 def load_pipeline_config(
     config_path: Path | None = None,
     overrides: dict[str, Any] | None = None,
@@ -188,13 +199,16 @@ def load_pipeline_config(
             else:
                 data[key] = val
     config = PipelineConfig(**data)
-    # Load task config
+    # Derive task metadata from the registered benchmark class
     try:
-        config.task_config = load_task_config(config.task)
-    except FileNotFoundError:
+        from agentnas.benchmarks.registry import get_benchmark
+
+        benchmark = get_benchmark(config.task, data_root=config.data_root or None)
+        config.task_config = TaskConfig.from_benchmark(benchmark)
+    except ValueError:
         import logging as _log
         _log.getLogger(__name__).warning(
-            f"Task config not found for '{config.task}'. "
+            f"Unknown task '{config.task}'. "
             f"SOTA baselines and task metadata will be unavailable."
         )
     return config

@@ -234,6 +234,17 @@ class FSD50KBenchmark(BaseBenchmark):
     Metric: 1 - mAP (lower=better).
     """
 
+    loss_name = "bce_with_logits"
+    metric_name = "map"
+    sota_metric = 0.62
+    sota_description = "Human SOTA 1-mAP = 0.62 (mAP = 0.38). Random baseline ~0.99."
+
+    explorer_test_exclusions = (
+        "eval_22050_chunks",
+        "chunks/eval.csv",
+        "precomputed/fsd50k_eval.pt",
+    )
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "fsd50k")
         self._data_dir = Path(data_root) / "fsd50k"

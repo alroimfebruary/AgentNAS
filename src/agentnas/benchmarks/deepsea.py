@@ -21,9 +21,32 @@ class DeepSEABenchmark(BaseBenchmark):
     Metric: 1 - mean per-class AUROC (lower=better).
     """
 
+    loss_name = "bce_with_logits"
+    metric_name = "auroc"
+    sota_metric = 0.30
+    sota_description = "SOTA 1-AUROC = 0.30 (mean per-class AUROC = 0.70)"
+
+    explorer_blind_renames = {"deepsea_filtered.npz": "data.npz"}
+    explorer_preprocessed_name = "deepsea_filtered.npz"
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "deepsea")
         self._data_dir = Path(data_root) / "deepsea"
+
+    def prepare_explorer_source(self, out_dir: Path, real_root: Path) -> None:
+        """Save a copy of deepsea_filtered.npz with only train/val arrays."""
+        out_path = out_dir / "deepsea_filtered.npz"
+        src_path = real_root / "deepsea" / "deepsea_filtered.npz"
+        if not src_path.exists():
+            raise FileNotFoundError(f"deepsea source missing: {src_path}")
+        data = np.load(src_path)
+        np.savez(
+            out_path,
+            x_train=data["x_train"],
+            y_train=data["y_train"],
+            x_val=data["x_val"],
+            y_val=data["y_val"],
+        )
 
     def _load_all(self) -> dict[str, np.ndarray]:
         """Load the npz file and transpose inputs."""

@@ -11,15 +11,15 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from agentnas.benchmarks.base import BaseBenchmark
 
-# Task name → (directory name, input shape, num_classes)
-_TASK_SPECS: dict[str, tuple[str, tuple[int, ...], int]] = {
-    "addnist":     ("AddNIST",     (3, 28, 28),  20),
-    "language":    ("Language",     (1, 24, 24),  10),
-    "multnist":    ("MultNIST",    (3, 28, 28),  10),
-    "cifartile":   ("CIFARTile",   (3, 64, 64),  4),
-    "gutenberg":   ("Gutenberg",   (1, 27, 18),  6),
-    "geoclassing": ("GeoClassing", (3, 60, 60),  10),
-    "chesseract":  ("Chesseract",  (12, 8, 8),   3),
+# Task name → (directory name, input shape, num_classes, SOTA metric, SOTA description)
+_TASK_SPECS: dict[str, tuple[str, tuple[int, ...], int, float, str]] = {
+    "addnist":     ("AddNIST",     (3, 28, 28),  20, 0.0209, "SOTA 1-accuracy = 0.0209 (accuracy 97.91%)"),
+    "language":    ("Language",     (1, 24, 24),  10, 0.0208, "SOTA 1-accuracy = 0.0208 (accuracy 97.92%)"),
+    "multnist":    ("MultNIST",    (3, 28, 28),  10, 0.0190, "SOTA 1-accuracy = 0.0190 (accuracy 98.10%)"),
+    "cifartile":   ("CIFARTile",   (3, 64, 64),  4, 0.0772, "SOTA 1-accuracy = 0.0772 (accuracy 92.28%)"),
+    "gutenberg":   ("Gutenberg",   (1, 27, 18),  6, 0.4598, "SOTA 1-accuracy = 0.4598 (accuracy 54.02%)"),
+    "geoclassing": ("GeoClassing", (3, 60, 60),  10, 0.0397, "SOTA 1-accuracy = 0.0397 (accuracy 96.03%)"),
+    "chesseract":  ("Chesseract",  (12, 8, 8),   3, 0.3117, "SOTA 1-accuracy = 0.3117 (accuracy 68.83%)"),
 }
 
 
@@ -31,6 +31,11 @@ class UnseenNASBenchmark(BaseBenchmark):
     Metric: 1 - accuracy (lower=better).
     """
 
+    loss_name = "cross_entropy"
+    metric_name = "accuracy"
+
+    explorer_test_exclusions = ("test_x.npy", "test_y.npy")
+
     def __init__(self, data_root: str, task_name: str | None = None):
         if task_name is None:
             raise ValueError("task_name is required for UnseenNASBenchmark")
@@ -40,7 +45,9 @@ class UnseenNASBenchmark(BaseBenchmark):
                 f"Available: {sorted(_TASK_SPECS.keys())}"
             )
         super().__init__(data_root, task_name)
-        dir_name, self._input_shape, self._num_classes = _TASK_SPECS[task_name]
+        (dir_name, self._input_shape, self._num_classes,
+         self.sota_metric, self.sota_description) = _TASK_SPECS[task_name]
+        self.data_subdir = dir_name
         self._data_dir = Path(data_root) / dir_name
 
     def _load_split(self, split: str) -> tuple[np.ndarray, np.ndarray]:

@@ -20,9 +20,31 @@ class SphericalBenchmark(BaseBenchmark):
     Metric: 1 - top-1 accuracy (lower=better).
     """
 
+    loss_name = "cross_entropy"
+    metric_name = "accuracy"
+    sota_metric = 0.4823
+    sota_description = "SOTA 1-accuracy = 0.4823 (accuracy 51.77%)"
+
+    explorer_blind_renames = {"s2_cifar100": "data.pkl"}
+    explorer_preprocessed_name = "s2_cifar100"
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "spherical")
         self._data_dir = Path(data_root) / "spherical"
+
+    def prepare_explorer_source(self, out_dir: Path, real_root: Path) -> None:
+        """Save a copy of s2_cifar100 with only the 'train' entry (no 'test')."""
+        import pickle as _pickle
+
+        out_path = out_dir / "s2_cifar100"
+        src_path = real_root / "spherical" / "s2_cifar100"
+        if not src_path.exists():
+            raise FileNotFoundError(f"spherical source missing: {src_path}")
+        with open(src_path, "rb") as f:
+            data = _pickle.load(f, encoding="bytes")
+        filtered = {"train": data["train"]}
+        with open(out_path, "wb") as f:
+            _pickle.dump(filtered, f, protocol=_pickle.HIGHEST_PROTOCOL)
 
     def _load_pickle(self) -> dict:
         path = self._data_dir / "s2_cifar100"

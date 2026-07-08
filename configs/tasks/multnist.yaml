@@ -1,9 +1,0 @@
-name: multnist
-data_dir: MultNIST
-input_shape: [3, 28, 28]
-num_classes: 10
-loss: cross_entropy
-metric: accuracy              # 1 - accuracy (lower=better)
-lower_is_better: true
-sota_metric: 0.0190           # SOTA 1-accuracy = 0.0190 (accuracy 98.10%)
-sota_description: "SOTA 1-accuracy = 0.0190 (accuracy 98.10%)"

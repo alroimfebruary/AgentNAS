@@ -358,8 +358,6 @@ def _run_phase1_main(
         if unseen_root.exists():
             explorer_data_root = str(unseen_root)
 
-    real_data_subdir = config.task_config.data_dir if config.task_config else config.task
-
     # Build a filtered temp directory for the explorer: test files always excluded,
     # blind mode additionally blinds domain-leaking files and renames symlinks.
     # The real data dir (config.data_root) is untouched; only the explorer sees
@@ -368,8 +366,7 @@ def _run_phase1_main(
     from agentnas.utils.explorer_data import build_explorer_data_dir
     explorer_temp_dir, explorer_subdir = build_explorer_data_dir(
         real_data_root=explorer_data_root,
-        task=config.task,
-        task_data_subdir=real_data_subdir,
+        benchmark=benchmark,
         blind_mode=config.blind_mode,
         project_root=project_root(),
     )

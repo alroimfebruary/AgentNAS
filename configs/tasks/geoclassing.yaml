@@ -1,9 +1,0 @@
-name: geoclassing
-data_dir: GeoClassing
-input_shape: [3, 60, 60]
-num_classes: 10
-loss: cross_entropy
-metric: accuracy              # 1 - accuracy (lower=better)
-lower_is_better: true
-sota_metric: 0.0397           # SOTA 1-accuracy = 0.0397 (accuracy 96.03%)
-sota_description: "SOTA 1-accuracy = 0.0397 (accuracy 96.03%)"

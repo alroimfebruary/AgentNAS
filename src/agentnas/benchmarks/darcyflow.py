@@ -52,6 +52,14 @@ class DarcyFlowBenchmark(BaseBenchmark):
     Metric: Relative L2 error (lower=better).
     """
 
+    loss_name = "lp_loss"
+    metric_name = "relative_l2"
+    sota_metric = 0.008
+    sota_description = "Human SOTA relative L2 = 0.008"
+
+    explorer_test_exclusions = ("piececonst_r421_N1024_smooth2.mat",)
+    explorer_blind_renames = {"piececonst_r421_N1024_smooth1.mat": "data.mat"}
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "darcyflow")
         self._data_dir = Path(data_root) / "darcyflow"

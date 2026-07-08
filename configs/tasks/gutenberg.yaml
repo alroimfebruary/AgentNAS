@@ -1,9 +1,0 @@
-name: gutenberg
-data_dir: Gutenberg
-input_shape: [1, 27, 18]
-num_classes: 6
-loss: cross_entropy
-metric: accuracy              # 1 - accuracy (lower=better)
-lower_is_better: true
-sota_metric: 0.4598           # SOTA 1-accuracy = 0.4598 (accuracy 54.02%)
-sota_description: "SOTA 1-accuracy = 0.4598 (accuracy 54.02%)"

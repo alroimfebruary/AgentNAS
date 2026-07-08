@@ -17,13 +17,24 @@ from pathlib import Path
 
 import pytest
 
-from agentnas.utils.explorer_data import (
-    BLIND_EXTRA_EXCLUSIONS,
-    BLIND_RENAMES,
-    BUNDLED_PREPROCESSED_TASKS,
-    TEST_EXCLUSIONS,
-    build_explorer_data_dir,
-)
+from agentnas.benchmarks.registry import get_benchmark, list_benchmarks
+from agentnas.utils.explorer_data import build_explorer_data_dir
+
+# The per-task visibility spec lives on the benchmark classes; project the
+# attributes into the table shapes the assertions below were written against.
+_BENCHMARKS = {t: get_benchmark(t) for t in list_benchmarks()}
+TEST_EXCLUSIONS = {
+    t: list(b.explorer_test_exclusions) for t, b in _BENCHMARKS.items()
+}
+BLIND_RENAMES = {
+    t: dict(b.explorer_blind_renames) for t, b in _BENCHMARKS.items()
+}
+BLIND_EXTRA_EXCLUSIONS = {
+    t: list(b.explorer_blind_exclusions) for t, b in _BENCHMARKS.items()
+}
+BUNDLED_PREPROCESSED_TASKS = {
+    t for t, b in _BENCHMARKS.items() if b.explorer_preprocessed_name
+}
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 NB360_ROOT = PROJECT_ROOT / "NAS-Bench-360-Benchmarks"
@@ -31,7 +42,7 @@ UNSEEN_ROOT = PROJECT_ROOT / "NAS-Unseen"
 EXPLORER_DATA_ROOT = PROJECT_ROOT / "configs" / "explorer_data"
 
 # Task -> (real_data_root, data_subdir).
-# Ordering: all tasks from TEST_EXCLUSIONS.keys().
+# Ordering: all tasks from list_benchmarks().
 TASK_LAYOUT: dict[str, tuple[Path, str]] = {
     # Unseen-NAS
     "addnist": (UNSEEN_ROOT, "AddNIST"),
@@ -139,13 +150,12 @@ def _skip_if_no_blind_readme(task: str, blind_mode: bool = True) -> None:
 def test_no_test_files_present(task, blind_mode, cleanup_tmp):
     """No test file (per TEST_EXCLUSIONS[task]) appears anywhere in the explorer dir."""
     _skip_if_no_blind_readme(task, blind_mode)
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=blind_mode,
         project_root=PROJECT_ROOT,
     )
@@ -164,13 +174,12 @@ def test_no_test_files_present(task, blind_mode, cleanup_tmp):
 def test_required_files_present_and_valid(task, blind_mode, cleanup_tmp):
     """All expected train/val files are present and resolve to real (existing) paths."""
     _skip_if_no_blind_readme(task, blind_mode)
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=blind_mode,
         project_root=PROJECT_ROOT,
     )
@@ -192,13 +201,12 @@ def test_required_files_present_and_valid(task, blind_mode, cleanup_tmp):
 def test_readme_source_matches_mode(task, blind_mode, cleanup_tmp):
     """The dataset/README.md contents match configs/<mode>_readmes/<task>.md."""
     _skip_if_no_blind_readme(task, blind_mode)
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=blind_mode,
         project_root=PROJECT_ROOT,
     )
@@ -220,13 +228,12 @@ def test_readme_source_matches_mode(task, blind_mode, cleanup_tmp):
 def test_blind_renames_applied(task, cleanup_tmp):
     """Blind-mode renames produce renamed entries and suppress originals (when renamed)."""
     _skip_if_no_blind_readme(task)
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=True,
         project_root=PROJECT_ROOT,
     )
@@ -257,13 +264,12 @@ def test_blind_renames_applied(task, cleanup_tmp):
 @pytest.mark.parametrize("task", ALL_TASKS)
 def test_standard_mode_no_renames(task, cleanup_tmp):
     """In standard mode, original filenames are preserved (no renames applied)."""
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=False,
         project_root=PROJECT_ROOT,
     )
@@ -288,7 +294,7 @@ def test_standard_mode_no_renames(task, cleanup_tmp):
 def test_bundled_tasks_use_preprocessed_source(task, blind_mode, cleanup_tmp):
     _skip_if_no_blind_readme(task, blind_mode)
     """For bundled tasks, symlinks resolve into configs/explorer_data/<task>/."""
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     preprocessed_root = EXPLORER_DATA_ROOT / task
@@ -299,8 +305,7 @@ def test_bundled_tasks_use_preprocessed_source(task, blind_mode, cleanup_tmp):
         )
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=blind_mode,
         project_root=PROJECT_ROOT,
     )
@@ -323,13 +328,12 @@ def test_bundled_tasks_use_preprocessed_source(task, blind_mode, cleanup_tmp):
 def test_blind_strips_domain_files(task, cleanup_tmp):
     _skip_if_no_blind_readme(task)
     """Blind mode excludes README, metadata, SVG, PDF from top level."""
-    real_root, subdir = TASK_LAYOUT[task]
+    real_root = TASK_LAYOUT[task][0]
     if not real_root.exists():
         pytest.skip(f"data root missing: {real_root}")
     temp_dir, dataset_subdir = build_explorer_data_dir(
         real_data_root=str(real_root),
-        task=task,
-        task_data_subdir=subdir,
+        benchmark=_BENCHMARKS[task],
         blind_mode=True,
         project_root=PROJECT_ROOT,
     )

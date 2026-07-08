@@ -225,6 +225,13 @@ class PsicovBenchmark(BaseBenchmark):
     Metric: MAE at distance ≤ 8Å, sequence separation ≥ 24 (lower=better).
     """
 
+    loss_name = "mse"
+    metric_name = "mae_lr_d8"
+    sota_metric = 2.94
+    sota_description = "SOTA MAE at d<=8A sep>=24 = 2.94"
+
+    explorer_test_exclusions = ("psicov", "cameo", "psicov.lst", "cameo-hard.lst")
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "psicov")
         self._data_dir = Path(data_root) / "psicov"

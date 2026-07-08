@@ -20,6 +20,13 @@ class CIFAR100Benchmark(BaseBenchmark):
     Metric: 1 - top-1 accuracy (lower=better).
     """
 
+    loss_name = "cross_entropy"
+    metric_name = "accuracy"
+    sota_metric = 0.1939
+    sota_description = "Human SOTA error rate 19.39% (accuracy 80.61%)"
+
+    explorer_test_exclusions = ("test",)
+
     def __init__(self, data_root: str):
         super().__init__(data_root, "cifar100")
         self._data_dir = Path(data_root) / "cifar100"
