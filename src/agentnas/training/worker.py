@@ -90,8 +90,11 @@ def run_worker(work_dir: str) -> None:
         with open(work_dir / "config.json") as f:
             config = TrainingConfig.from_dict(json.load(f))
 
-        # Load benchmark
-        from agentnas.benchmarks.registry import get_benchmark
+        # Load benchmark — replaying custom-benchmark registrations from the
+        # parent process first, so --benchmark-file tasks resolve here too.
+        from agentnas.benchmarks.registry import get_benchmark, load_benchmark_file
+        for bf in args.get("benchmark_files", []):
+            load_benchmark_file(bf)
         benchmark = get_benchmark(task_name, data_root=data_root)
 
         # Select device (CUDA_VISIBLE_DEVICES already set, so device 0)

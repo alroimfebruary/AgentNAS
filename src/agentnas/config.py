@@ -148,6 +148,9 @@ class PipelineConfig(BaseModel):
     phase: int = 1  # 1, 2, or 3
     experiment_dir: str = ""
     data_root: str = ""
+    # Optional path to a Python file whose @register_benchmark classes define
+    # custom tasks. Loaded before the task is resolved.
+    benchmark_file: str = ""
     seed: int = 42
     blind_mode: bool = False  # Unseen-NAS ablation: suppress domain knowledge to LLM
     # Fixed-seed-arch ablation (Phase 1 LLM-loop replacement). Empty string = off.
@@ -199,6 +202,11 @@ def load_pipeline_config(
             else:
                 data[key] = val
     config = PipelineConfig(**data)
+    # Register custom tasks before resolving the task name
+    if config.benchmark_file:
+        from agentnas.benchmarks.registry import load_benchmark_file
+
+        load_benchmark_file(config.benchmark_file)
     # Derive task metadata from the registered benchmark class
     try:
         from agentnas.benchmarks.registry import get_benchmark

@@ -405,3 +405,26 @@ Both share the same phase implementations under `src/agentnas/phases/`.
 we recommend running a one-time mel-spectrogram precompute for `fsd50k` (`python scripts/precompute_fsd50k.py`).
 `spherical` / `deepsea` / `ecg` require a bundled-split preprocess; this runs
 automatically on first Explorer invocation, cached thereafter.
+
+## Bring your own dataset
+
+Any dataset you can wrap in one Python file can run through the full
+pipeline — see the runnable tutorial in
+[`examples/custom_task/`](examples/custom_task/). In short:
+
+```bash
+# 1. Define the task: subclass NpyClassificationBenchmark (3 class attrs)
+#    or BaseBenchmark (full control), decorated with @register_benchmark.
+# 2. Validate before spending budget — contract, loaders, test-set
+#    isolation, split integrity, metric sanity, and a preview of exactly
+#    what the LLM agents will see:
+agentnas validate-task my_task.py --data-root /path/to/data
+
+# 3. Run:
+agentnas run --task my_task --phase 1 --benchmark-file my_task.py \
+    --data-root /path/to/data
+```
+
+Custom tasks declare `explorer_allowed_files` — an allowlist of train/val
+files. Anything not listed (your test split) can never reach the LLM, and
+the pipeline refuses to run a task with no visibility spec.

@@ -24,6 +24,8 @@ def main():
 @click.option("--budget", type=int, default=None, help="Max architecture evaluations")
 @click.option("--experiment-dir", default=None, help="Experiment output directory")
 @click.option("--data-root", default=None, help="Root directory for benchmark data (absolute path)")
+@click.option("--benchmark-file", type=click.Path(exists=True, path_type=Path), default=None,
+              help="Python file registering custom tasks via @register_benchmark")
 @click.option("--resume/--no-resume", default=True, help="Resume from checkpoint")
 @click.option("--seed", type=int, default=None, help="Random seed")
 @click.option(
@@ -72,6 +74,7 @@ def run(
     budget: int | None,
     experiment_dir: str | None,
     data_root: str | None,
+    benchmark_file: Path | None,
     resume: bool,
     seed: int | None,
     config_path: Path | None,
@@ -102,6 +105,8 @@ def run(
         overrides["experiment_dir"] = experiment_dir
     if data_root:
         overrides["data_root"] = data_root
+    if benchmark_file:
+        overrides["benchmark_file"] = str(benchmark_file.resolve())
     if seed is not None:
         overrides["seed"] = seed
     if blind_mode:
@@ -248,12 +253,40 @@ def clone_and_modularize_cmd(
         click.echo(f"  {k}: {v}")
 
 
+@main.command("validate-task")
+@click.argument("benchmark_file", type=click.Path(exists=True, path_type=Path))
+@click.option("--task", default=None,
+              help="Task to validate (default: the single task the file registers)")
+@click.option("--data-root", required=True,
+              help="Root directory containing the task's data subdirectory")
+def validate_task_cmd(benchmark_file: Path, task: str | None, data_root: str):
+    """Validate a custom benchmark file before spending GPU/LLM budget.
+
+    Loads BENCHMARK_FILE, checks the contract, runs the loader smoke test,
+    verifies Explorer test-set isolation, checks split integrity and metric
+    sanity, and previews exactly what the LLM agents will see.
+    """
+    from agentnas.validation import validate_custom_task
+
+    ok = validate_custom_task(str(benchmark_file), task, data_root)
+    sys.exit(0 if ok else 1)
+
+
 @main.command("smoke-test")
 @click.option("--task", default=None, help="Task to test (or 'all')")
 @click.option("--data-root", default=None, help="Data root directory")
-def smoke_test(task: str | None, data_root: str | None):
+@click.option("--benchmark-file", type=click.Path(exists=True, path_type=Path),
+              default=None, help="Python file registering custom tasks")
+def smoke_test(task: str | None, data_root: str | None, benchmark_file: Path | None):
     """Run smoke tests on benchmark data loaders."""
-    from agentnas.benchmarks.registry import get_benchmark, list_benchmarks
+    from agentnas.benchmarks.registry import (
+        get_benchmark,
+        list_benchmarks,
+        load_benchmark_file,
+    )
+
+    if benchmark_file:
+        load_benchmark_file(str(benchmark_file))
 
     tasks = [task] if task and task != "all" else list_benchmarks()
 

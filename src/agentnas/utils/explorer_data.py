@@ -54,6 +54,22 @@ def _has_nested_exclusion(dir_rel_path: str, exclusions: list[str]) -> bool:
     return any(e.startswith(prefix) for e in exclusions)
 
 
+def _is_allowed(rel_path: str, allowlist: tuple[str, ...]) -> bool:
+    """True if rel_path is an allowlist entry or lives under an allowed dir."""
+    for allowed in allowlist:
+        if rel_path == allowed:
+            return True
+        if rel_path.startswith(allowed + "/"):
+            return True
+    return False
+
+
+def _has_nested_allowed(dir_rel_path: str, allowlist: tuple[str, ...]) -> bool:
+    """True if any allowlist entry is strictly inside this directory."""
+    prefix = dir_rel_path + "/"
+    return any(a.startswith(prefix) for a in allowlist)
+
+
 def _walk_and_symlink(
     src_dir: Path,
     dst_dir: Path,
@@ -61,10 +77,13 @@ def _walk_and_symlink(
     exclusions: list[str],
     blind_mode: bool,
     top_level_renames: dict[str, str],
+    allowlist: tuple[str, ...] | None = None,
 ) -> None:
     """Recursively mirror src_dir into dst_dir via symlinks, skipping exclusions.
 
-    Renames apply only at the top level (rel_base == "").
+    With an allowlist (not None), only allowlisted paths — and anything
+    beneath an allowlisted directory — are mirrored; exclusions still apply
+    on top. Renames apply only at the top level (rel_base == "").
     """
     for item in src_dir.iterdir():
         rel_path = f"{rel_base}/{item.name}" if rel_base else item.name
@@ -76,6 +95,17 @@ def _walk_and_symlink(
         # Per-task / test-set exclusions (both modes)
         if _is_excluded(rel_path, exclusions):
             continue
+
+        # Allowlist filter: hide anything not allowed. Directories that are
+        # not fully allowed but contain allowed entries are recursed into.
+        fully_allowed = True
+        if allowlist is not None:
+            fully_allowed = _is_allowed(rel_path, allowlist)
+            if item.is_dir():
+                if not fully_allowed and not _has_nested_allowed(rel_path, allowlist):
+                    continue
+            elif not fully_allowed:
+                continue
 
         # Blind-mode domain-leak exclusions
         if blind_mode:
@@ -92,7 +122,7 @@ def _walk_and_symlink(
         target = dst_dir / target_name
 
         if item.is_dir():
-            if _has_nested_exclusion(rel_path, exclusions):
+            if _has_nested_exclusion(rel_path, exclusions) or not fully_allowed:
                 target.mkdir()
                 _walk_and_symlink(
                     src_dir=item,
@@ -101,11 +131,37 @@ def _walk_and_symlink(
                     exclusions=exclusions,
                     blind_mode=blind_mode,
                     top_level_renames={},
+                    allowlist=allowlist,
                 )
             else:
                 target.symlink_to(item.resolve())
         else:
             target.symlink_to(item.resolve())
+
+
+def _generate_readme(benchmark: "BaseBenchmark", dataset_dir: Path) -> str:
+    """Auto-generate an Explorer README from benchmark metadata + visible files."""
+    spec = benchmark.output_spec()
+    if "num_classes" in spec:
+        output_desc = f"{spec['num_classes']} classes"
+    else:
+        output_desc = f"dense output of shape {tuple(spec['output_shape'])}"
+
+    listing = "\n".join(
+        f"- `{p.name}{'/' if p.is_dir() else ''}`"
+        for p in sorted(dataset_dir.iterdir())
+    )
+    return (
+        f"# {benchmark.task_name}\n\n"
+        f"- Input shape (per sample): {tuple(benchmark.input_shape())}\n"
+        f"- Output: {output_desc}\n"
+        f"- Loss: {benchmark.loss_name}\n"
+        f"- Metric: {benchmark.metric_name} (lower = better)\n\n"
+        f"## Files\n\n"
+        f"Only the training and validation portion of the dataset is visible "
+        f"here; test data is withheld.\n\n"
+        f"{listing}\n"
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -176,6 +232,21 @@ def build_explorer_data_dir(
         DataExplorer. The caller must clean up temp_dir with shutil.rmtree().
     """
     task = benchmark.task_name
+
+    # Refuse benchmarks with no visibility spec: exposing the raw data dir
+    # would hand the Explorer the test set.
+    if (
+        benchmark.explorer_preprocessed_name is None
+        and benchmark.explorer_allowed_files is None
+        and not benchmark.explorer_test_exclusions
+    ):
+        raise ValueError(
+            f"Benchmark '{task}' declares no Explorer visibility spec. Set "
+            f"explorer_allowed_files (recommended for custom tasks), "
+            f"explorer_test_exclusions, or a preprocessed source — refusing "
+            f"to expose the raw data dir to the Explorer."
+        )
+
     temp_dir = Path(tempfile.mkdtemp(prefix="agentnas_explorer_"))
     dataset_dir = temp_dir / "dataset"
     dataset_dir.mkdir()
@@ -212,18 +283,26 @@ def build_explorer_data_dir(
         exclusions=exclusions,
         blind_mode=blind_mode,
         top_level_renames=top_level_renames,
+        allowlist=benchmark.explorer_allowed_files,
     )
 
-    # Copy the mode-appropriate curated README
+    # README: curated repo copy > benchmark-provided > auto-generated.
+    # Blind mode requires the curated blind README (the whole point of the
+    # ablation is a controlled description), so it stays a hard failure.
     readme_subdir = "blind_readmes" if blind_mode else "explorer_readmes"
     readme_src = project_root / "configs" / readme_subdir / f"{task}.md"
-    if not readme_src.exists():
+    if readme_src.exists():
+        readme_text = readme_src.read_text()
+    elif blind_mode:
         shutil.rmtree(temp_dir, ignore_errors=True)
-        mode_str = "blind" if blind_mode else "standard"
         raise FileNotFoundError(
             f"Explorer README not found: {readme_src}. "
-            f"Expected a {mode_str}-mode README for task '{task}'."
+            f"Expected a blind-mode README for task '{task}'."
         )
-    (dataset_dir / "README.md").write_text(readme_src.read_text())
+    else:
+        readme_text = benchmark.explorer_readme() or _generate_readme(
+            benchmark, dataset_dir
+        )
+    (dataset_dir / "README.md").write_text(readme_text)
 
     return temp_dir, "dataset"

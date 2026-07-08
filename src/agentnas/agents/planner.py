@@ -73,7 +73,7 @@ of your proposed epochs. A {time_limit_min}-minute GPU time hard cap also applie
 ## Performance Baseline
 {sota_info}
 Your metric is **lower = better**. Scores near 1.0 mean the model learned almost nothing. \
-You must significantly beat random chance and aim toward the SOTA baseline above.
+You must significantly beat random chance{sota_aim}.
 
 ## Critical: Training Recipe Design
 Design your training recipe for **full training** (the final phase). The pipeline will \
@@ -202,6 +202,7 @@ class Planner:
         budget_total: int,
         patience: int,
         sota_info: str = "No baseline available.",
+        sota_available: bool = True,
         train_samples: str = "unknown",
         state: PlannerState | None = None,
         proxy_epoch_pct: int = 30,
@@ -214,6 +215,7 @@ class Planner:
         self.budget_total = budget_total
         self.patience = patience
         self.sota_info = sota_info
+        self.sota_available = sota_available
         self.train_samples = train_samples
         self.state = state or PlannerState()
         self.total_tokens = 0
@@ -379,6 +381,10 @@ class Planner:
             task_readme=self.task_readme,
             explorer_report=self.state.explorer_report or "(No exploration done yet)",
             sota_info=self.sota_info,
+            sota_aim=(
+                " and aim toward the SOTA baseline above"
+                if self.sota_available else ""
+            ),
             train_samples=self.train_samples,
         )
 

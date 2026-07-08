@@ -27,7 +27,7 @@ from agentnas.agents.planner import (
     Planner,
     PlannerState,
 )
-from agentnas.benchmarks.registry import get_benchmark
+from agentnas.benchmarks.registry import get_benchmark, loaded_benchmark_files
 from agentnas.config import PipelineConfig
 from agentnas.llm.client import LLMClient
 from agentnas.llm.logger import LLMLogger
@@ -112,6 +112,8 @@ def _run_training_subprocess(
         "seed": seed,
         "max_vram_mb": max_vram_mb,
         "proxy_epoch_fraction": proxy_epoch_fraction,
+        # Custom-benchmark files to replay in the worker process
+        "benchmark_files": loaded_benchmark_files(),
     }
     with open(work_dir / "args.json", "w") as f:
         json.dump(args, f, indent=2)
@@ -329,6 +331,9 @@ def _run_phase1_main(
         budget_total=config.budget.max_evaluations,
         patience=config.budget.patience,
         sota_info=sota_info,
+        sota_available=bool(
+            config.task_config and config.task_config.sota_metric is not None
+        ),
         train_samples=train_samples,
         state=planner_state,
         proxy_epoch_pct=int(config.gpu.proxy_epoch_fraction * 100),

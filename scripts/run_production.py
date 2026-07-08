@@ -34,6 +34,8 @@ def main():
                         help="Run specific phase (1/2/3). Default 0 = full pipeline (1→2→3)")
     parser.add_argument("--llm-model", default="claude-haiku-4-5-20251001", help="LLM model name")
     parser.add_argument("--data-root", default=None, help="Data root (absolute path)")
+    parser.add_argument("--benchmark-file", default=None,
+                        help="Python file registering custom tasks via @register_benchmark")
     parser.add_argument("--experiment-dir", default=None, help="Override experiment directory")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-resume", action="store_true", help="Start fresh (don't resume)")
@@ -101,6 +103,8 @@ def main():
 
     # Load production config as base, override with CLI args
     overrides = {"task": task, "seed": args.seed, "data_root": data_root}
+    if args.benchmark_file:
+        overrides["benchmark_file"] = str(Path(args.benchmark_file).resolve())
     if args.llm_model != "claude-haiku-4-5-20251001":
         overrides["llm.model"] = args.llm_model
     if args.blind_mode:

@@ -32,8 +32,16 @@ class BaseBenchmark(ABC):
     data_subdir: str = ""
 
     # --- Explorer visibility spec (test-set isolation) ---
-    # Paths relative to the task data dir that hold test data; always hidden
-    # from the Data Explorer. A directory entry hides its whole subtree.
+    # A benchmark must declare at least one of: an allowlist, test
+    # exclusions, or a preprocessed source. build_explorer_data_dir() refuses
+    # benchmarks with no spec rather than exposing the raw data dir.
+    #
+    # Allowlist (REQUIRED style for custom tasks): when set (not None), the
+    # Explorer sees ONLY the listed paths — relative to the task data dir —
+    # plus anything beneath a listed directory. Everything else is hidden.
+    explorer_allowed_files: tuple[str, ...] | None = None
+    # Exclusion style (used by the vetted builtin benchmarks): paths that
+    # hold test data, always hidden. A directory entry hides its subtree.
     explorer_test_exclusions: tuple[str, ...] = ()
     # Blind-mode only: additional exclusions and top-level renames.
     explorer_blind_exclusions: tuple[str, ...] = ()
@@ -43,6 +51,15 @@ class BaseBenchmark(ABC):
     # prepare_explorer_source()) instead of the real data dir. Needed when a
     # dataset bundles all splits in one file that symlinking cannot filter.
     explorer_preprocessed_name: str | None = None
+
+    def explorer_readme(self) -> str | None:
+        """Markdown README shown to the Explorer when the repo ships no
+        curated one (configs/explorer_readmes/<task>.md).
+
+        Return None (default) to fall back to an auto-generated summary of
+        shapes, loss, metric, and the visible file listing.
+        """
+        return None
 
     def prepare_explorer_source(self, out_dir: Path, real_root: Path) -> None:
         """Write the train+val-only Explorer copy into ``out_dir``.
