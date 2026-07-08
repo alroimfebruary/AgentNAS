@@ -253,6 +253,34 @@ def clone_and_modularize_cmd(
         click.echo(f"  {k}: {v}")
 
 
+@main.command("results")
+@click.argument("experiment_dir", type=click.Path(exists=True, path_type=Path))
+@click.option("--export", "export_path", default=None,
+              help="Write the winning architecture's standalone model.py here")
+@click.option("--json", "as_json", is_flag=True, default=False,
+              help="Print machine-readable JSON instead of the report")
+def results_cmd(experiment_dir: Path, export_path: str | None, as_json: bool):
+    """Summarize an experiment: winner, per-phase metrics, token usage.
+
+    Works on a single-phase dir (agentnas run) or a full-pipeline base dir
+    (scripts/run_production.py). The winner follows the pipeline's ever-best
+    -by-val_final rule; --export writes the exact model.py that produced the
+    winner's reported test metric.
+    """
+    import json as _json
+
+    from agentnas.results import collect, export_winner, render
+
+    results = collect(experiment_dir)
+    if as_json:
+        click.echo(_json.dumps(results, indent=2, default=str))
+    else:
+        click.echo(render(results))
+    if export_path:
+        out = export_winner(results, export_path)
+        click.echo(f"\nExported winner to {out}")
+
+
 @main.command("init-task")
 @click.option("--task", required=True, help="Task name to register")
 @click.option("--data-root", required=True,
