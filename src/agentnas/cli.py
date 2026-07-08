@@ -14,6 +14,10 @@ from agentnas.config import load_pipeline_config
 @click.version_option(package_name="agentnas")
 def main():
     """AgentNAS: LLM + Grammar-Based Neural Architecture Search Pipeline."""
+    # Line-buffer stdout even when piped so click.echo output interleaves
+    # chronologically with logging (stderr) in captured/redirected logs.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
 
 
 @main.command()

@@ -71,6 +71,9 @@ as a concise, structured report covering:
 - Maximum {max_steps} steps. On step {max_steps}, you MUST produce a <REPORT> \
 (the report will be accepted on the final step even without further execution).
 - Keep code concise and focused on the investigation purpose.
+- Every step costs real tokens: keep prose minimal (the code and its output \
+carry the analysis) and produce <REPORT> as soon as the purpose is answered. \
+Simple datasets rarely need more than a handful of steps.
 
 ## Purpose
 {purpose}
