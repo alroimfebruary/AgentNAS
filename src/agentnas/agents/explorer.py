@@ -17,6 +17,20 @@ from agentnas.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
+
+class ExplorerError(RuntimeError):
+    """The explorer could not ground a report in real code execution.
+
+    Raised instead of returning a fabricated report: a search seeded with
+    invented dataset statistics is worse than a failed run.
+    """
+
+
+# Abort after this many consecutive turns without any executable code —
+# a model stuck on the wrong output format will not fix itself by step 30,
+# and every futile turn grows the context (and the bill).
+_MAX_NO_CODE_STREAK = 5
+
 _EXPLORER_SYSTEM_PROMPT = """\
 You are a Data Explorer agent for a neural architecture search pipeline. Your job is \
 to analyze a dataset by writing and executing Python code.
@@ -91,10 +105,22 @@ def _execute_code(
 def _extract_codes(text: str) -> list[str]:
     """Extract all Python code blocks from LLM response, stripped and non-empty.
 
-    Whitespace-only blocks are filtered out so they cannot satisfy the
-    ≥1-execution gate in the explorer loop.
+    Primary format is ```python fences. As a fallback, code wrapped in
+    pseudo-tool-call XML (<invoke name="execute_code"><parameter name="code">
+    ...) is accepted — some models emit their tool-use syntax as plain text
+    despite the prompt. Whitespace-only blocks are filtered out so they
+    cannot satisfy the ≥1-execution gate in the explorer loop.
     """
     matches = re.findall(r"```python\s*\n(.*?)```", text, re.DOTALL)
+    codes = [m.strip() for m in matches if m.strip()]
+    if codes:
+        return codes
+    # Fallback: pseudo-tool-call markup emitted as plain text.
+    matches = re.findall(
+        r"<invoke name=\"execute_code\">\s*<parameter name=\"code\">(.*?)</parameter>",
+        text,
+        re.DOTALL,
+    )
     return [m.strip() for m in matches if m.strip()]
 
 
@@ -145,6 +171,7 @@ class DataExplorer:
 
         tokens_used = 0
         exec_count = 0
+        no_code_streak = 0
 
         with tempfile.TemporaryDirectory(prefix="agentnas_explore_") as tmpdir:
             work_dir = Path(tmpdir)
@@ -169,8 +196,9 @@ class DataExplorer:
                 # Final step: <REPORT> is mandatory — accept it even if code also
                 # present. Otherwise a final-step response with both would execute
                 # code, the loop would exit, and we'd hit the post-loop fallback
-                # "(Explorer did not produce a report...)".
-                if has_report and is_final_step:
+                # "(Explorer did not produce a report...)". A report with zero
+                # executions is never accepted — that is a fabrication.
+                if has_report and is_final_step and exec_count >= 1:
                     report = resp.content.split("<REPORT>", 1)[1].replace("</REPORT>", "").strip()
                     logger.info(
                         f"Explorer produced report at final step {step} "
@@ -189,6 +217,7 @@ class DataExplorer:
                     )
                     output = _execute_code(combined, work_dir, self.python_bin)
                     exec_count += 1
+                    no_code_streak = 0
                     messages.append({"role": "assistant", "content": resp.content})
                     messages.append({
                         "role": "user",
@@ -204,6 +233,18 @@ class DataExplorer:
                     )
                     self.total_tokens += tokens_used
                     return report, tokens_used
+
+                no_code_streak += 1
+                if no_code_streak >= _MAX_NO_CODE_STREAK:
+                    self.total_tokens += tokens_used
+                    raise ExplorerError(
+                        f"Explorer produced no executable code for "
+                        f"{no_code_streak} consecutive turns (step {step}/"
+                        f"{self.max_steps}, {exec_count} successful executions "
+                        f"so far). The model is not emitting ```python blocks "
+                        f"— check the llm_logs/explorer_*.json transcripts, "
+                        f"and consider a stronger model."
+                    )
 
                 if has_report:
                     # Report before any execution — reject and nudge.
@@ -223,18 +264,31 @@ class DataExplorer:
                     })
                     continue
 
-                # No code, no report — nudge to continue.
+                # No code, no report — say exactly what was wrong and show the
+                # only format that executes (models stuck on tool-call syntax
+                # will not recover from a vague nudge).
                 messages.append({"role": "assistant", "content": resp.content})
                 messages.append({
                     "role": "user",
                     "content": (
-                        f"Step {step}/{self.max_steps}. "
-                        "Please write Python code to continue your analysis, "
-                        "or produce a <REPORT> if done."
+                        f"Step {step}/{self.max_steps}. No executable code was "
+                        "found in your reply. Code runs ONLY when written inside "
+                        "a fenced block exactly like:\n"
+                        "```python\nprint('hello')\n```\n"
+                        "Tool-call syntax (<function_calls>, <invoke>, "
+                        "execute_code) is NOT available here. Rewrite your code "
+                        "in a single ```python block, or produce a <REPORT> if "
+                        "your investigation is complete."
                     ),
                 })
 
         # If we get here, max steps exhausted without report
+        if exec_count == 0:
+            self.total_tokens += tokens_used
+            raise ExplorerError(
+                f"Explorer exhausted {self.max_steps} steps without a single "
+                f"successful code execution — refusing to fabricate a report."
+            )
         logger.warning("Explorer exhausted max steps without producing a report")
         self.total_tokens += tokens_used
         return "(Explorer did not produce a report within the step limit)", tokens_used
