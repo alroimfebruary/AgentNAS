@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--data-root", default=None, help="Data root (absolute path)")
     parser.add_argument("--benchmark-file", default=None,
                         help="Python file registering custom tasks via @register_benchmark")
+    parser.add_argument("--config", default=None,
+                        help="Pipeline config YAML (default: configs/production.yaml)")
     parser.add_argument("--experiment-dir", default=None, help="Override experiment directory")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-resume", action="store_true", help="Start fresh (don't resume)")
@@ -60,9 +62,12 @@ def main():
 
     # Resolve paths
     project_root = Path(__file__).parent.parent.resolve()
-    config_path = project_root / "configs" / "production.yaml"
+    if args.config:
+        config_path = Path(args.config).resolve()
+    else:
+        config_path = project_root / "configs" / "production.yaml"
     if not config_path.exists():
-        logger.error(f"Production config not found: {config_path}")
+        logger.error(f"Config not found: {config_path}")
         sys.exit(1)
 
     data_root = args.data_root
