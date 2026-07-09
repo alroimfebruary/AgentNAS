@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--task", required=True, help="Benchmark task name (e.g., fsd50k)")
     parser.add_argument("--phase", type=int, default=0,
                         help="Run specific phase (1/2/3). Default 0 = full pipeline (1→2→3)")
-    parser.add_argument("--llm-model", default="claude-haiku-4-5-20251001", help="LLM model name")
+    parser.add_argument("--llm-model", default="claude-sonnet-4-6", help="LLM model name")
     parser.add_argument("--data-root", default=None, help="Data root (absolute path)")
     parser.add_argument("--benchmark-file", default=None,
                         help="Python file registering custom tasks via @register_benchmark")
@@ -110,7 +110,7 @@ def main():
     overrides = {"task": task, "seed": args.seed, "data_root": data_root}
     if args.benchmark_file:
         overrides["benchmark_file"] = str(Path(args.benchmark_file).resolve())
-    if args.llm_model != "claude-haiku-4-5-20251001":
+    if args.llm_model != "claude-sonnet-4-6":
         overrides["llm.model"] = args.llm_model
     if args.blind_mode:
         overrides["blind_mode"] = True

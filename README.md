@@ -22,7 +22,7 @@ Every full run is a four-phase pipeline:
    proxy-trained on your GPUs.
 2. **Phase 1.5 — Modularize.** The winning architecture's repeated stages
    are refactored into per-stage modules (forward-equivalence validated).
-3. **Phase 2 — Grammar.** A fresh-context LLM rewrites the winner as a
+3. **Phase 2 — Search Space Synthesis.** A fresh-context LLM rewrites the winner as a
    slotted architecture: each slot gets several behaviorally distinct
    alternatives, defining a combinatorial search space.
 4. **Phase 3 — Evolution.** Regularized evolution over slot choices; the
@@ -45,8 +45,8 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ## Quick start — five minutes on a toy dataset
 
-Runnable end-to-end without downloading anything (≈$0.5 of LLM budget with
-Haiku, one GPU):
+Runnable end-to-end without downloading anything (a dollar or two of LLM
+budget with the default Sonnet driver, one GPU):
 
 ```bash
 # 1. Generate a synthetic 4-class dataset
@@ -58,8 +58,7 @@ agentnas validate-task examples/custom_task/toy_task.py --data-root ./toy_data
 # 3. Search
 agentnas run --task toy_task --phase 1 \
     --benchmark-file examples/custom_task/toy_task.py \
-    --data-root ./toy_data --n-gpu 1 --budget 6 \
-    --llm-model claude-haiku-4-5-20251001
+    --data-root ./toy_data --n-gpu 1 --budget 6
 
 # 4. Inspect the winner and export its standalone model.py
 agentnas results experiments/toy_task_phase1 --export best_model.py
@@ -178,7 +177,7 @@ touch:
 
 The 17 paper tasks remain registered on `main` — NAS-Bench-360 (cifar100,
 spherical, ninapro, fsd50k, darcyflow, psicov, cosmic, ecg, satellite,
-deepsea) and NAS-Unseen (addnist, language, multnist, cifartile, gutenberg,
+deepsea) and Unseen NAS (addnist, language, multnist, cifartile, gutenberg,
 geoclassing, chesseract) — and run with the same commands once their data
 sits at the repo root (`agentnas smoke-test --task all` verifies the
 loaders). Data sources, expected layout, per-task reproduction commands,

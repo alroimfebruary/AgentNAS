@@ -15,7 +15,7 @@ from agentnas.utils.paths import project_root
 class LLMConfig(BaseModel):
     """LLM API configuration."""
 
-    model: str = "claude-haiku-4-5-20251001"
+    model: str = "claude-sonnet-4-6"
     temperature: float = 0.7
     seed: int | None = None
     max_tokens: int = 64000

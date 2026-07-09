@@ -434,7 +434,7 @@ def smoke_test(task: str | None, data_root: str | None, benchmark_file: Path | N
 
 
 @main.command("test-llm")
-@click.option("--model", default="claude-haiku-4-5-20251001", help="Model to test")
+@click.option("--model", default="claude-sonnet-4-6", help="Model to test")
 def test_llm(model: str):
     """Test LLM client connectivity."""
     from agentnas.config import LLMConfig
