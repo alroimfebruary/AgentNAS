@@ -1,5 +1,9 @@
 # AgentNAS: LLM + Neural Architecture Search
 
+<p align="center">
+  <img src="assets/overview.png" width="100%">
+</p>
+
 AgentNAS is an agentic neural architecture search pipeline: LLM agents
 explore your dataset, design and iteratively refine architectures, compile
 the winner into a grammar of interchangeable slots, and evolve that search
