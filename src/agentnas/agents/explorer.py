@@ -54,6 +54,9 @@ process). You'll receive stdout+stderr (truncated to {truncate_chars} chars) as 
 user message.
 
 CRITICAL rules:
+- You have NO tools in this conversation: tool-call / function-call XML \
+(<function_calls>, <invoke>, bash) does nothing here. The ONLY way to run \
+code is a ```python fenced block written directly in your reply.
 - NEVER fabricate results. Do NOT write "**Execution output:**" or any output \
 block in your own message — outputs come back to you in the NEXT user turn.
 - Do NOT produce <REPORT> until you have actually executed at least one \
